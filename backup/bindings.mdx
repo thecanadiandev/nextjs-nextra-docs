@@ -1,0 +1,52 @@
+# Types of Bindings in Angular
+
+We have 4 types of bindings
+
+By binding, we mean, a connection or a communication between template, which is the HTML  & class / business logic, which is the Typescript logic.
+
+- **String interpolation**. ( if we have any expression that can result in a string, use this )
+- **Property binding** (HTML element attributes / properties like alt, src, href , etc can be bound dynamically, or [innerHTML]="expression")
+- **Event Binding** ( click, keyboard events, mouseevents )
+- **2 Way binding** ( for which we need FormsModule with [(ngModel)] or "banana in a box syntax")
+
+### Note:
+
+- String interpolation and property binding is from the class to the template. ie, (one way binding).
+- Event binding is when user interacts with template which updates the class . (This is also one way binding, but opposite direction )
+- Two way binding is, as the name suggests , bi-directional ( also called Banana in a box )
+- `$event` is a reserved keyword that passes the event data as a parameter when triggering event bindings.
+- By default, `event.target.value` returns a string. It is not angular related, but javascript specific.
+- Property or attribute binding ( Property binding wants to target properties, not attributes. So things like aria tags need [attr.aria-valuenow]="currentVal")
+
+- [Bindings Example here](https://stackblitz.com/edit/ngdocs-01?file=src%2Fapp%2Fapp.component.html)
+- [Angular 18 version here ](https://stackblitz.com/edit/stackblitz-starters-nhpith?file=src%2Fmain.ts)
+
+- Note: To get this 2 way binding feature, make sure, we need to register the `FormsModule` which we have imported from respective namespaces.
+
+- like this:
+
+```js
+import { FormsModule } from '@angular/forms';
+
+@NgModule({
+  imports: [FormsModule],
+})
+```
+
+- by registering the same within `imports:[]` array, we unlock all the features provided by the forms module.
+- With standalone, we register them within the imports array of components. Not modules. 
+- we also made the button dynamically disabled using the property binding
+- so whenever the description is empty, the Accept button is disabled.
+
+### Another option / variation for [(ngModel)] 
+
+[Example here](https://stackblitz.com/edit/ngdocs-01-uva4zf?file=src%2Fapp%2Fapp.component.html)
+
+- The only difference is that, we bind to the `input` event of textarea and the value property.
+- `$event` is a reserved keyword that passes the whole event object into the handler method
+- so every time, we type in a new character, it is kept in sync by assigning the target value to the option object's description property.
+
+### Adding a custom component ( v18 )
+
+[Example here](https://stackblitz.com/edit/stackblitz-starters-rtytcw?file=src%2Fapp.component.ts)
+- Here, we saw the Input and Output flow as well. 

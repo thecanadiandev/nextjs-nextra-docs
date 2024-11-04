@@ -1,0 +1,592 @@
+# Routing & Page rendering
+
+- build up on what we already learned.
+- explore routing patterns
+- whenever we have a default export, next makes it available a `params` prop to the component.
+- It can also hold dynamic paths (`params.id` if we have named our file as `[id]/page.js`)
+
+## Handle not found errors and show not found pages
+
+- We could add it on nested paths too. Enter something that doesnt exist to see the page content.
+
+```
+app/
+  not-found.js  // shows 404 .
+  news/
+    [slug]
+      not-found.js
+
+```
+
+and for error handling,
+
+```js
+
+import { notFound } from 'next/navigation';
+
+const NewsDetail = ({ params }) => {
+  const newsId = params.id;
+  const newsItem = DUMMY_NEWS.find(n => n.slug === newsId);
+
+  if (!newsItem) {
+    notFound() // trigger not found error & nextjs shows closest not-found.js page
+  }
+  ...
+}
+```
+
+We could use the `not-found.js` page in nested folders to have a more specific error page.
+
+## Parallel routes
+
+- A new routing pattern. Parallel routes starts with `@` symbol.
+- are routes that we can setup in nextjs is a feature that allows us to render the content of 2
+- separate routes with separate paths on one & same page
+
+```
+app/
+  archive/
+     @archive/
+        page.js
+     @latest/
+        page.js
+     layout.js
+```
+
+- to setup parallel routing, add a layout and a sub folder per parallel route.
+- both pages can be shown at the same time.
+- here, the layout component function receives one prop per parallel route along with children.
+
+```js
+// app/archive/layout.js
+import React from 'react';
+
+const ArchiveLayout = ({ archive, latest }) => {
+  return (
+    <div>
+      <section id="archive-filter">{archive}</section>
+      <section id="archive-latest">{latest}</section>
+    </div>
+  );
+};
+
+export default ArchiveLayout;
+```
+
+If we navigate to `/archive`, then we see content of both pages.
+
+Think of a product page with some products on the top and a "deal of the day" items. We can search for our choice and based on that, what we see at the top changes, but it does not affect the deal of the day items.
+
+```
+app/
+  archive/
+    @archive/
+       [year]
+         page.js
+      page.js
+    @latest/
+      page.js
+    layout.js
+```
+
+and to add more dynamic routes,
+
+```
+app/
+  archive/
+    @archive/
+       [year]
+         page.js
+      page.js
+    @latest/
+      page.js
+    layout.js
+```
+
+in the `[year]/page.js` we grab a specific year and try to render the news for that year only.
+
+```js
+import NewsList from '@/components/news-list';
+import { getNewsForYear } from '@/lib/news';
+import React from 'react';
+
+const FilteredNewsPage = ({ params }) => {
+  const newsYear = params.year;
+  const news = getNewsForYear(newsYear);
+  return <NewsList news={news} />;
+};
+
+export default FilteredNewsPage;
+```
+
+Here, if we try to render, we get a page not found error.
+That is because we are in a parallel route setup. We are still within a layout, who tries to render the content of 2 different routes in the same page. Both routes work independant of each other. In the first route, we delve deeper and add a dynamic route, but the same hierarchy isnt made for the second route. One of the 2 parallel routes did not find a fitting page for the path we try to visit.
+
+```
+app/
+  archive/
+    @archive/
+       [year]
+         page.js
+      page.js
+    @latest/
+       [year]   <-- this is the expectation
+         page.js
+      page.js
+    layout.js
+```
+
+Instead, we can add a `default.js` page as a fallback page.
+
+## Default page
+
+```
+app/
+  archive/
+    @archive/
+       [year]
+         page.js
+      page.js
+    @latest/
+      default.js
+      page.js // delete this and use default if the content to be shown is the same for both
+    layout.js
+```
+
+- next allows to have a default.js file instead of page.js
+- if the content of page.js and default js is the same, we can delete the latter.
+- when dealing with parallel routes, this files defines the fallback content
+- if the route doesnt have a more specific content for the path that is currently loaded.
+
+## Catch all routes
+
+- a standard dynamic route `@archive/[year]` can be converted into a catch all route. `archive/@archive/[[...filter]]`.
+- The page.js within the `[[...filter]]` folder will be activated for any path segments after archive ( the root one )
+
+```js
+app/
+  archive/
+    @archive
+      [[...filter]]
+         page.js
+      page.js
+    @latest
+     default.js
+```
+
+- if we get an error saying "You cannot define a route with same specificity as optional catch all route",
+- it means, we have 2 conflicting page.js files. `@archive/page.js` conflits with `@archive/[[...filter]]/page.js`
+- Therefore, grab the contents of `@archive/page.js`, delete the page.js file, and go to nested page.js, and use the content there.
+
+```js
+// @archive/[[...filter]]/page.js
+
+const FilteredNewsPage = ({ params }) => {
+  const filter = params.filter;
+  const selectedYear = filter?.[0];
+  const selectedMonth = filter?.[1];
+
+  let news;
+  let links = getAvailableNewsYears();
+
+  if (selectedYear && !selectedMonth) {
+    news = getNewsForYear(selectedYear);
+    links = getAvailableNewsMonths(selectedYear);
+  }
+
+  if (selectedYear && selectedMonth) {
+    news = getNewsForYearAndMonth(selectedYear, selectedMonth);
+    links = [];
+  }
+
+  let newsContent = <p> No news available</p>;
+
+  if (news && news.length > 0) {
+    newsContent = <NewsList news={news} />;
+  }
+
+  return (
+    <>
+      <header id="archive-header">
+        <nav>
+          <ul>
+            {links.map((link) => {
+              const href = selectedYear
+                ? `/archive/${selectedYear}/${link}`
+                : `/archive/${link}`;
+              return (
+                <li key={link}>
+                  <Link href={href}>{link}</Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      </header>
+      {newsContent}
+    </>
+  );
+};
+
+export default FilteredNewsPage;
+```
+
+## Throwing route related errors
+
+- for invalid path segments, `/archive/2024/a/b`, shows the default No news found message
+- we can add an error condition and to handle, add an error.js
+- we can add the below check, and throw an error. This will show a development time error screen.
+
+```js
+if (
+  (selectedYear && !getAvailableNewsYears().includes(+selectedYear)) ||
+  (selectedMonth &&
+    !getAvailableNewsMonths(selectedYear).includes(+selectedMonth))
+) {
+  throw new Error('Invalid Filter');
+}
+```
+
+to avoid seeing this, we need to handle the error with a fallback error.js page.
+
+```
+app/
+  archive/
+    @archive
+      [[...filter]]
+      page.js
+      error.js
+    @latest
+     default.js
+```
+
+Make sure the component is a client component
+
+```js
+'use client';
+const FilterError = () => {
+  return (
+    <div id="error">
+      <h2> An error occured.. </h2>
+    </div>
+  );
+};
+
+export default FilterError;
+```
+
+and the closest error.js will be shown
+
+## Server vs Client components
+
+- react server components are only rendered on server.
+- client components are pre rendered on server, but later executed again on client / browser.
+- error.js must be a client component as client side code also can fail.
+- as far as possible, keep components as server components
+
+## Highlight currently active path
+
+- a good practice is to outsource the client side code into a separate component.
+- make them as small as possible. Suppose, if we have a header component, instead of making the whole component a client side,
+  just take the links and make a separate component
+
+```js
+'use client'
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+
+export default function NavLink({ href, children }) {
+  const path = usePathname();
+
+  return (
+    <Link href={href} className={path.startsWith(`/${href}`) ? 'active' : undefined}>{children}</Link>
+  )
+}
+
+// and use it as
+
+import NavLink from './nav-link';
+
+export default function MainHeader() {
+  // no need of usePathname here. Make this component a server component.
+  return (
+    <header id="main-header">
+      <nav>
+        <ul>
+          <li>
+            <NavLink href="/news"> News </NavLink>
+          </li>
+          <li>
+             <NavLink href="/archive"> Archive </NavLink>
+          </li>
+        </ul>
+      </nav>
+    </header>
+  );
+}
+```
+
+- Here, MainHeader is still a server component.
+
+## Nested routes inside dynamic routes
+
+- let's explore interceptor routes.
+- nested routes inside of dynamic routes will have access to those parameters.
+
+```
+app/
+  news/
+    [id]
+      image/
+        page.js
+
+```
+
+and the page will have access to the dynamic id. That is nothing new.
+
+```js
+const ImagePage = ({ params }) => {
+  const newsItemSlug = params.id;
+  const newsItem = DUMMY_NEWS.find((n) => n.slug === newsItemSlug);
+
+  if (!newsItem) {
+    notFound();
+  }
+  return (
+    <div className="fullscreen-image">
+      <img src={`/images/news/${newsItem.image}`} alt={newsItem.title} />
+    </div>
+  );
+};
+
+export default ImagePage;
+```
+
+An intercepting route is a route that sometimes get activated depending on whether we navigate to it from an internal link or from an external link or when we reloaded. It intercepts an internal navigation request, and a different page would be shown.
+
+```
+app/
+  news/
+    [id]
+      [(.)image]
+        page.js
+      image/
+        page.js
+
+```
+
+The page.js can be,
+
+```js
+const ImageInterceptedPage = ({ params }) => {
+  const newsItemSlug = params.id;
+  const newsItem = DUMMY_NEWS.find((n) => n.slug === newsItemSlug);
+
+  if (!newsItem) {
+    notFound();
+  }
+  return (
+    <>
+      <h2> Intercepted! </h2>
+      <div className="fullscreen-image">
+        <img src={`/images/news/${newsItem.image}`} alt={newsItem.title} />
+      </div>
+    </>
+  );
+};
+
+export default ImageInterceptedPage;
+```
+
+Here, if we reload the page, this won't be shown, instead the content of `image/page.js` is shown but if coming after clicking on the Link element, this will be shown. (`[(/image)/page.js]`)
+
+We get to show different page depending on how we got to this page.
+
+This becomes a useful feature when clubbed with parallel routes. Eg: Show the content in a model if intercepted, or a full screen page if we reloaded the page or entered the link manually.
+
+## Combine parallel & intercepting routes
+
+The below setup might sound confusing. So be attentive on the folder structure.
+
+```
+app/
+  news/
+    [id]
+      @details/
+      @modal/
+         [(.)image]
+            page.js
+         default.js/page.js
+      image/
+        page.js
+      layout
+
+```
+
+Note: the parallel routes doesnt add anything to URL. It is for organizational purpose.
+
+The layout being,
+
+```js
+import React from 'react';
+
+const NewsDetailLayout = ({ children, modal }) => {
+  return (
+    <>
+      {modal}
+      {children}
+    </>
+  );
+};
+
+export default NewsDetailLayout;
+```
+
+and the default.js within `@modal` being
+
+```js
+import React from 'react';
+
+const ModalDefault = () => {
+  return null;
+};
+
+export default ModalDefault;
+```
+
+From the detail page, if we click on the image, then now, we see that the content is shown as a modal overlay.
+If we refresh, it is shown as a separate content page.
+
+## Navigate programmatically
+
+To click on modal backdrop, and navigate to somewhere, we need the `useRouter()` from the `next/navigation` package.
+Now, if we click on the modal, it routes back to the previous route using the `back()` method.
+
+```js
+'use client';
+
+import { useRouter } from 'next/navigation';
+
+const ImageInterceptedPage = ({ params }) => {
+  const router = useRouter();
+
+  return (
+    <>
+      <div className="modal-backdrop" onClick={() => router.back()} />
+      <dialog className="modal" open>
+        ...
+      </dialog>
+    </>
+  );
+};
+
+export default ImageInterceptedPage;
+```
+
+## Route Groups
+
+- We can have one layout for certain group of pages, and some other layout for another set of routes.
+- We need a different route for the starting page without navbar, and the rest with navbar.
+- we can achieve that with route groups.
+
+```
+app/
+  (content)
+    layout.js
+    not-found.js
+  (marketing)
+    layout.js
+    page.js
+  layout.js
+```
+
+The outer layout.js as a child to app
+
+```js
+import './globals.css';
+
+export const metadata = {
+  title: 'Next.js Page Routing & Rendering',
+  description: 'Learn how to route to different pages.',
+};
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+and inside the `(marketing)` folder, since we have a page.js, it tries to render that as the home page
+So, the `layout.js` corresponding to that will be loaded. Since this is home page, we don't need the navbar there.
+Since the `globals.css` was already imported at root layout, we can omit that too.
+
+```js
+export const metadata = {
+  title: 'Next.js Page Routing & Rendering',
+  description: 'Learn how to route to different pages.',
+};
+
+export default function MarketingLayout({ children }) {
+  return <main>{children}</main>;
+}
+```
+
+For the `layout.js` inside the `(content)`, we need the navbar.
+
+```js
+import MainHeader from '@/components/MainHeader';
+
+export const metadata = {
+  title: 'Next.js Page Routing & Rendering',
+  description: 'Learn how to route to different pages.',
+};
+
+export default function ContentLayout({ children }) {
+  return (
+    <div id="page">
+      <MainHeader />
+      {children}
+    </div>
+  );
+}
+```
+
+## Build API with route handlers
+
+In a route handler, we can export various functions ( CRUD ) which must have an HTTP method name.
+We can setup routes that doesnt return pages, but json data. We can setup API like routes.
+
+```
+app/
+ api/
+  route.ts
+```
+
+and within the route.ts file, have the below format, and hit the `http:localhost:3000/api` route on browser.
+
+```js
+export function GET(request) {
+  console.log(request);
+  return new Response('Hello, Next.js!');
+}
+```
+
+## Middleware
+
+At the root, add a `middleware.js`
+
+```js
+import { NextResponse } from 'next/server';
+
+export function middleware(req, res) {
+  console.log('middleware');
+  return NextResponse.next();
+}
+// filters
+export const config = {
+  matcher: '/news/:path*',
+};
+```

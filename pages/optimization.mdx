@@ -1,0 +1,86 @@
+# Optimizations
+
+- Image optimizations, SEO metadata,
+
+If the image is part of the codebase and is available in file system.
+
+```js
+import Image from 'next/image';
+import logo from '@/assets/logo.png';
+
+<Image
+  src={logo}
+  alt="alt text"
+  width={300}
+  height={300}
+  sizes="10vw"
+  priority
+/>;
+```
+
+- Here, logo is an object with src, height, width, and other details. loading="lazy" is added automatically.
+- Helps with layout shifting
+- `srcset` helps loading different images for various viewport sizes.
+- `priority` preloads the image as it should be always loaded.
+
+For user generated images,
+
+```js
+// to closest container
+.post-image {
+  position: relative;
+  width: 8rem;
+  height: 6rem;
+}
+
+<div className="post-image">
+ <Image fill alt={}/>
+</div>
+
+// in next.config.js
+const nextConfig = {
+  images: {
+    remotePatterns: [{ hostname: 'res.cloudinary.com' }],
+  },
+};
+```
+
+## Image loader and cloudinary resizing
+
+```js
+
+function imageLoader(config){
+  const urlStart = config.src.split("upload/")[0];
+  const urlend = config.src.split("upload/")[1];
+  const transform = `w_200,q_${config.quality}`
+  return `${urlStart}upload/${transform}/${urlEnd}`
+}
+<div className="post-image">
+ <Image loader={imageLoader} fill alt={} src={post.image} quality={50}/>
+</div>
+```
+
+## Page metadata
+
+```js
+// in page.js
+
+export const metadata = {
+  title: '',
+  description: '',
+};
+
+// for dynamic metadata
+export async function generateMetadata({ params }) {
+  const posts = await getPosts();
+  const numberOfPosts = posts.length;
+  return {
+    title: '',
+    description: 'Browse all' + numberOfPosts + ' of our posts',
+  };
+}
+```
+
+### Layout metadata
+
+We can add the same in layouts too. It will be the default one for all pages.

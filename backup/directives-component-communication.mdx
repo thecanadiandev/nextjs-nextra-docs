@@ -1,0 +1,152 @@
+# Directives
+
+- They are instructions placed in DOM. For example, components. 
+- Directives doesn't have a template as components do 
+- Unlike jquery or javascript, we never do direct DOM changes.
+- Instead, we delegate that task to directives which is managed by angular.
+
+### They are of 2 types
+
+- Structural Directives
+
+  - they changes the structure of the DOM.
+  - So with this, we can conditionally, add or remove items from DOM
+  - they are denoted using an asterik.
+  - `*ngFor, *ngIf` are the most common structural directives
+  - `*ngFor` allows us to iterate through collections
+  - `*ngIf` allows us to show / hide elements conditionally
+
+- Attribute directives
+
+  - They change the attributes of the element which they are placed on
+  - `[ngClass]` to add/remove classes,
+  - `[ngStyle]` to conditionally add styles,
+  - `[ngSwitch]` to have our traditional switch cases
+
+[Example here](https://stackblitz.com/edit/ngdocs-03)
+
+### We can also show if/else clauses
+
+```js
+<p *ngIf="isAdult"; else minor> Senior</p>
+
+<ng-template #minor>
+  Minor
+</ng-template>
+```
+
+[Example here](https://stackblitz.com/edit/ngdocs-03-dqgaru?file=src%2Fapp%2Fapp.component.ts)
+
+- Here we say, if the expression evaluates to true, show the main content,
+- else whatever we held within the `<ng-template` is shown. By default the ng-template is not rendered in the DOM
+- We mark the template with something called a "TemplateRef" which is `#notawesome` here ( think of it as putting an ID in jQuery)
+- Simply put, we grab an element reference in the template.
+
+### Index for looping
+
+```
+*ngFor="let item of items; let idx = index"
+```
+
+This basically gives access to the current index of the iteration.
+
+### Component Communication ( parent to child )
+
+Just like we have built in properties for elements like `src, alt` etc, and default events like `click, enter` etc, 
+We can have custom properties and events too which helps components to communicate.
+
+Drawn with excalidraw.
+
+![Component communication](/images/cmp-com.png)
+
+Always keep in mind, data flows down, events flow up. Why? Think of it like a one way traffic where we know the vehicle can only go on certain direction.
+It helps to track the data and narrow down to the components and is easier to reason the app.
+
+[Example here](https://stackblitz.com/edit/ngdocs-03-aw58ey?file=src%2Fapp%2Fapp.component.ts)
+
+- simply put, the child accepts input via `@Input()`
+- child emits events back to its parent via `@Output()`
+- `EventEmitter<any>()` is a generic type helps us to emit our own events in angular. 
+- `onSelect` is a custom event. Just like regular click, mouse, keyboard events, we create our own custom event here.
+
+### Question time 
+
+- if we have a chain of components where there are 4 levels, is it okay if we pass the data from parent to the deeply nested child as props?
+- What are the drawbacks?
+
+### Example time ( Putting everything we have learned till now)
+
+- This time, we are taking all the knowledge we learned till now and build something small.
+- Go through the code and see if you can track them & understand. Dont freak out! It is easy.
+- We also learn the basics of **component communication** here.
+- Below is a collection of users.
+  - we Iterate through the collection using `ngFor`
+  - Have 2 components - A UsersComponent (parent) & UserComponent ( child )
+  - We register both in the app module and use the selectors.
+  - we communicate between components.
+  - our aim is to make lean & focused components. We have a **smart-dumb** combo here where, parent holds the logic, and pass it down to child. Some call it "Container-Presentation" approach too.
+  - Parent component is just a wrapper ( holding the logic )
+  - Individual user is shown within child component ( accepts input & sends back output )
+  - Pass data down using `@Input` which is a part of component communication
+  - Pass selected user up to the immediate parent using `@Output` and `EventEmitter`
+  - we conditionally show a "fresher message" if user is fresher with `*ngIf`
+  - we do interpolation & attribute binding like we learned before.
+  - we use a switch statement to tell more about skill rating with `[ngSwitch]`
+  - we define an interface / model to define how a user should look like.
+  - we use `ngStyle` to change cursor styles inline
+  - Click on the button and check console.
+  - Use bootstrap Card to display user details
+
+[Stackblitz code](https://stackblitz.com/edit/ngdocs-04-tdlqrt?file=src%2Fapp%2Fapp.module.ts)
+
+
+### Explanation
+
+- Here, we are having a custom property called `user` for the `UserComponent` to which we pass a user instance down from the parent & a custom event `OnSelect`
+- The property binding and event binding is used here too, just that on our own properties and events
+
+
+```js
+<app-user
+  (onSelect)="handleSelect($event)" // 👈  binding to a custom event
+  [user]="user"> // 👈  binding to a custom property
+</app-user>
+```
+
+- we have an `onSelect` which is an EventEmitter which emits the event to the immediate parent.
+- In a **uni-directional pattern**, data flows down, events flow up.
+- So long as the logic is handled by parent, child just need to obey what it is told to do.
+- the decision making is delegated to parent. We pass a user down, and when the user is selected, we emit that up.
+- What parent does with that info is not child's concern. It can log the value, add it to collection, or show a notification. Whatever it is.
+- It makes testing much easier.
+
+### Additional notes
+
+- There is a concept called "**alias**"ing where we can alias the input and output.
+- **Reason:** You created an input & ouput and when expose, you realize that some other developer too has used the same name for inputs and outputs, or the project style guide recommends another pattern. So when we expose them outside, we use a different name, but logics within are in tact.
+
+```js
+export class UserComponent {
+  @Input('myUser') user: User;
+  @Output('customSelect') onSelect = new EventEmitter<User>();
+}
+```
+
+instead of this
+
+```
+<app-user
+  (onSelect)="handleSelect($event)"
+  [user]="user">
+</app-user>
+```
+
+ we need to use them as below for it to work once we apply aliases
+
+```
+<app-user
+  (customSelect)="handleSelect($event)"
+  [myUser]="user">
+</app-user>
+```
+

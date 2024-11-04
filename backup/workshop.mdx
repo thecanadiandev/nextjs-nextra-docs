@@ -1,0 +1,58 @@
+# Workshop 
+
+- lets talk about architecture. 
+- What is BFF pattern? 
+- Just an optimized layer who does multiple calls to backend, whereas front end receives the data it is looking for. 
+- matters for mobile / tablet 
+- we just need to the point data 
+
+```
+/companyProfile
+/jobs
+```
+- what about all calls posted by one company?
+- create a new app. 
+- how do we architect the UI ? 
+- use css framework? 
+- decide on services. is there a pattern?
+- how many services ?
+
+- angular material. 
+- [Install](https://material.angular.io/guide/getting-started)
+- add a button. 
+- where should we register the button? Shared? Or App? 
+- create a dedicated module , exports array exposes the module. 
+
+```js 
+// DRY 
+have a const matModules = []
+
+components/ 
+modules/ 
+shared/
+page/home 
+layouts/ 
+
+```
+- create a navbar. 
+- hosting is only for a limited period of time. 
+- workshop-1 example 
+
+- feature modules?
+- layout wrapper component , SRP 
+- where should we register it? 
+- banner 
+- profile page & route them in the app routing module. 
+- Services -
+- endpoints/index.ts 
+
+Company Profile 
+
+- add modal 
+- one single generic service 
+- Relationships between apis is not handled on the api level.
+- job, profile 
+- all the jobs posted by a particular company ??
+- companyProfile only gives certain set of details. what about the name? it comes from the description. 
+- companyProfileId api call. 
+- from description, take the companyProfileId and use that in 

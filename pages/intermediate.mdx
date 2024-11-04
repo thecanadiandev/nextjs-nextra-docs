@@ -1,0 +1,432 @@
+# Intermediate topics
+
+## Server Actions for form submissions
+
+A server action is guarenteed to be executed only on sevrer side.
+
+- `use client` is used within components or files, whereas `use server` is within a function.
+- To make a function a server action, we need to mark it as `async too.
+- We can assign a server action function as a value to the `action` property of form.
+- When the form is submitted,next js behind scenes create a request and send it to next js server, so that the function gets triggered and handle form submission there, but ONLY ON SERVER.
+- That form data submitted will be available as a `formData` object.
+
+```js
+import ImagePicker from '@/components/meals/image-picker';
+import classes from './page.module.css';
+
+export default function ShareMealPage() {
+  // makes the form data automatically available as a prop
+  async function shareMeal(formData) {
+    'use server';
+    const meal = {
+      title: formData.get('title'),
+      summary: formData.get('summary'),
+      instructions: formData.get('instructions'),
+      image: formData.get('image'),
+      creator: formData.get('name'),
+      creator_email: formData.get('email'),
+    };
+    // logs on server terminal, can save to DB later.
+    console.log(meal);
+  }
+  return (
+    <>
+      <main className={classes.main}>
+        <form className={classes.form} action={shareMeal}>
+          <input type="text" id="name" name="name" required />
+          <input type="email" id="email" name="email" required />
+          <input type="text" id="title" name="title" required />
+          <input type="text" id="summary" name="summary" required />
+          <ImagePicker label="Your image" name="image" />
+          <textarea id="instructions" name="instructions" required></textarea>
+          <button type="submit"> Share </button>
+        </form>
+      </main>
+    </>
+  );
+}
+```
+
+- this will work only if the component is not a client component.
+- we are not allowed to have server actions in a client component file.
+
+## Storing server actions in separate files
+
+- we can add the server function inside the component only if it is not a client component.
+- If it is marked as `use client`, it wont work.
+- We can save server actions in separate file.
+
+```js
+// in lib/actions.js
+
+'use server';
+
+export async function shareMeal(formData) {
+  const meal = {
+    title: formData.get('title'),
+    summary: formData.get('summary'),
+    instructions: formData.get('instructions'),
+    image: formData.get('image'),
+    creator: formData.get('name'),
+    creator_email: formData.get('email'),
+  };
+  // logs on server terminal
+  console.log(meal);
+}
+
+// in share/page.js
+// 'use client'; // if we need to, we can mark it as client side component
+import { shareMeal } from '@/lib/actions';
+
+<form className={classes.form} action={shareMeal}>
+  ...
+</form>;
+```
+
+- for technical reasons, we cant mix both in same file, but can import a server action from another file
+  and use it in a client component marked with `use client` directive.
+
+## Storing uploaded images & store data in DB
+
+- storing images in DB is a bad idea.
+
+```js
+// libs/meals.js
+
+import sql from 'better-sqlite3';
+import slugify from 'slugify';
+import xss from 'xss';
+import fs from 'node:fs';
+
+export async function saveMeal(meal) {
+  meal.slug = slugify(meal.title, { lower: true });
+  meal.instructions = xss(meal.instructions);
+  const extn = meal.image.name.split('.').pop();
+  const fileName = `${meal.slug}.${extn}`;
+
+  const stream = fs.createWriteStream(`public/images/${fileName}`);
+  const bufferedImage = await meal.image.arrayBuffer();
+
+  stream.write(Buffer.from(bufferedImage), (err) => {
+    if (err) {
+      throw new Error('saving image failed..');
+    }
+  });
+  meal.image = `/images/${fileName}`;
+
+  db.prepare(
+    `
+   INSERT INTO meals
+   (title, summary, instructions, creator, creator_email, image, slug)
+   VALUES ( 
+    @title,
+    @summary,
+    @instructions,
+    @creator, 
+    @creator_email,
+    @image,
+    @slug
+   ) 
+  `
+  ).run(meal); // order matters
+}
+
+// and in libs/actions.js
+
+import { saveMeal } from './meals';
+import { redirect } from 'next/navigation';
+
+export async function shareMeal(formData) {
+  const meal = {
+    title: formData.get('title'),
+    summary: formData.get('summary'),
+    instructions: formData.get('instructions'),
+    image: formData.get('image'),
+    creator: formData.get('name'),
+    creator_email: formData.get('email'),
+  };
+  await saveMeal(meal);
+  redirect('/meals'); // redirects the user to a different page.
+}
+```
+
+Once we submit the form, we see the new entry on the meals page.
+But during submission, it might take time. We need to let user know that something is happening.
+
+## Manage form submission status
+
+- can use useFormStatus() hook.
+- for the hook to give the status, it should be inside the form component as a child component.
+
+So we create a separate component, a lean component with `use client` where only this submit button needs to be rendered on client. The component with the form who consumes this, can be a server component. The hook changes status based on the ongoing request.
+
+```js
+'use client';
+import { useFormStatus } from 'react-dom';
+
+export default function MealsFormSubmit() {
+  const { pending } = useFormStatus();
+  return (
+    <button disabled={pending}> {pending ? 'Submitting' : 'Share Meal'}</button>
+  );
+}
+```
+
+and use the component where we have included the hook.
+
+```js
+// share/page.js
+
+import ImagePicker from '@/components/meals/image-picker';
+import classes from './page.module.css';
+import { shareMeal } from '@/lib/actions';
+import MealsFormSubmit from '@/components/meals/meals-form-submit';
+
+export default function ShareMealPage() {
+  return (
+    <>
+      <header className={classes.header}>
+        <h1>
+          Share your <span className={classes.highlight}>favorite meal</span>
+        </h1>
+        <p>Or any other meal you feel needs sharing!</p>
+      </header>
+      <main className={classes.main}>
+        <form className={classes.form} action={shareMeal}>
+          <div className={classes.row}>
+            <p>
+              <label htmlFor="name">Your name</label>
+              <input type="text" id="name" name="name" required />
+            </p>
+            <p>
+              <label htmlFor="email">Your email</label>
+              <input type="email" id="email" name="email" required />
+            </p>
+          </div>
+          <p>
+            <label htmlFor="title">Title</label>
+            <input type="text" id="title" name="title" required />
+          </p>
+          <p>
+            <label htmlFor="summary">Short Summary</label>
+            <input type="text" id="summary" name="summary" required />
+          </p>
+          <p>
+            <label htmlFor="instructions">Instructions</label>
+            <textarea
+              id="instructions"
+              name="instructions"
+              rows="10"
+              required
+            ></textarea>
+          </p>
+          <ImagePicker label="Your image" name="image" />
+          <p className={classes.actions}>
+            <MealsFormSubmit />
+          </p>
+        </form>
+      </main>
+    </>
+  );
+}
+```
+
+## Server side input validation
+
+```js
+// libs/actions.js
+
+'use server';
+
+import { redirect } from 'next/navigation';
+import { saveMeal } from './meals';
+
+// have util methods like this.
+function isInvalidText(txt) {
+  return !txt || txt.trim() === '';
+}
+
+export async function shareMeal(formData) {
+  const meal = {
+    title: formData.get('title'),
+    summary: formData.get('summary'),
+    instructions: formData.get('instructions'),
+    image: formData.get('image'),
+    creator: formData.get('name'),
+    creator_email: formData.get('email'),
+  };
+  // similarly other fields need to be added.
+  if (isInvalidText(meal.title) || isInvalidText(meal.summary)) {
+    // shows the closest error.js
+    throw new Error('invalid input');
+  }
+  await saveMeal(meal);
+  redirect('/meals');
+}
+```
+
+The problem is that, it shows an error.js thereby destroying the inputs we had on the form.
+Better UX is to stay on the form page and show error on that page itself.
+
+## Server Action responses & useActionState
+
+In server actions, it is not just about redirection or throwing errors.
+We can return response objects. ( values )
+
+```js
+export async function shareMeal(formData) {
+  const meal = {
+    ...
+  };
+
+  if (isInvalidText(meal.title) || isInvalidText(meal.summary)) {
+    return {
+      message: 'Invalid input..'
+    }
+  }
+  await saveMeal(meal);
+  redirect('/meals');
+}
+```
+
+To handle such validation messages that we return as objects, we can use another hook. The hook is responsible for managing the state of the page / component which uses the form which will be submitted with the help of server actions.
+
+```js
+import { useFormState } from 'react-dom';
+// there is a useActionState equivalent too.
+// initial value that needs to be returned from hook before action is triggered and getting back a message
+const [state, formAction] = useFormState(serverAction, {
+  message: null,
+});
+```
+
+The `state` is the current state, and `formAction` which can be set to the action property.
+
+```js
+// share/page.js
+
+'use client';
+import { useFormState } from 'react-dom';
+
+export default function ShareMealPage() {
+  const [state, formAction] = useFormState(shareMeal, { message: null });
+
+  return (
+    <>
+      <main className={classes.main}>
+        <form className={classes.form} action={formAction}>
+          ...
+          {state.message ? state.message : null}
+        </form>
+      </main>
+    </>
+  );
+}
+```
+
+and in the actions file, the signature changes slightly.
+
+```js
+
+// lib/actions.js
+// add prevState as the first argument.
+// It can be the default state object or based on response, something different
+export async function shareMeal(prevState, formData) {
+    const meal = {
+      ...
+    }
+
+  if (isInvalidText(meal.title) || isInvalidText(meal.summary)) {
+     return {
+        message: 'Invalid input'
+     }
+    }
+    await saveMeal(meal);
+    redirect('/meals')
+}
+```
+
+## Build for production
+
+- There are issues with caching
+- `npm run build` does a prod build. Then run it with `npm run start`
+- if we run that and revisit the meals page, adding a new meal brings a small problem.
+- When redirected, the meal which we added is missing.
+- Next performs caching. With production, next js pre renders all the pages of the app which can be pre-generated.
+- So basically, all non dynamic pages are pre generated.
+- Next caches the pre rendered pages. Downside being, it never refetches the meals. So newly entered data is lost.
+- Because the code never executes again. It uses the pre rendered pages itself.
+
+![Build for prod](/images/06.png)
+
+## Trigger cache revalidations
+
+- We need to tell Next to throw away the cache when we add new data.
+
+```js
+// libs/action.js
+'use server';
+
+import { redirect } from "next/navigation";
+import { saveMeal } from "./meals";
+import { revalidatePath } from "next/cache";
+
+export async function shareMeal(prevState, formData) {
+    const meal = {
+      ...
+    }
+
+  await saveMeal(meal);
+
+  // only this path will be revalidated, not nested paths. Alternatively,
+  // if we set layout as the second parameter,  its the layout that will be revalidated. That is,
+  // next throws the cache for those revaliated pages/layouts.
+    revalidatePath('/meals')
+    revalidatePath('/meals', 'layout')
+
+    redirect('/meals')
+}
+// if we build again, the cache will be cleared on adding new meal.
+
+```
+
+The problem being, the image wont be shown. Meal is there though.
+We store the images in file system in public/images folder. Once built for prod, the ".next" folder is used.
+Adding more images to public folder doesnt help, it gets ignored.
+We should store the files in something like AWS S3.
+
+## Adding static metadata
+
+- In root layout, we export a metadata const.
+- If we add the metadata to a layout, it will automatically be added to all the pages
+  within a layout unless a page specifies its own metadata
+
+```js
+// In meals/page.js, we have a specific metadata
+
+export const metadata = {
+  title: 'All meals',
+  description: 'Check out all the meal options',
+};
+```
+
+Now, the `localhost:3000/meals` have a new title. Check browser tab.
+
+## Adding dynamic metadata
+
+we need to export a specific function.
+
+```js
+// in [mealSlug]/page.js
+
+export async function generateMetadata({ params }) {
+  const meal = getMeal(params.mealSlug);
+  if (!meal) {
+    notFound();
+  }
+  return {
+    title: meal.title,
+    description: meal.description,
+  };
+}
+```

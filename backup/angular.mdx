@@ -1,0 +1,888 @@
+# Angular 
+
+- is 2 things. A front end JS framework. 
+- helps us build advanced feature rich & highly interactive web UIs
+- Also a collection of tools & features ( CLI, Debugging tools, IDE plugins)
+
+## Why framework? 
+
+- Simplify the process of building complex, interactive web UIs.
+- GIves us fetaures, rules 
+- Helps us write Declarative code instead of imperative. 
+- Seperation of concerns via components which is custom HTML elements ( HTMl + CSS + JS )
+- Build a component once and re-use it. 
+- Better development process.
+- OOPS concepts & principles.
+- Uses typescript.
+- what we write is TS, not JS.
+
+## Evolution 
+
+- Evolving framework, 
+- 2016 - Angular 2 was released. Every year, 2 new versions will come out. 
+- Good backward compatibility.
+- A good amount of company still works with older versions. 
+- With 14 & 15, Standalone components was released.
+- With 16, Signals was released. 
+
+## Scaffolding 
+
+- CLI simplify the process. 
+- VS code can be a good editor. 
+- Angular language service extension + Angular essentials are extra installations.
+
+```js 
+sudo npm i -g @angular/cli 
+Node js is a pre requisites. CLI needs node to work properly. 
+
+ng new app-name 
+npm start
+```
+
+## Angular essentials. 
+
+- Components, templates, services & more. 
+- Folder structure walkthrough, main.ts, package.json 
+- Bootstrap flow: The app root is the only component in index.html 
+- The `bootstrapApplication` is looking for the component, and looks for its selector in index.html 
+- standalone set to true means the component is a stand alone component. 
+
+[Creating and registering new component](https://stackblitz.com/edit/stackblitz-starters-pfszxv?file=src%2Fmain.ts)
+- Make sure, `standalone` is true. 
+- We also have module based components. ( older module based approach )
+- imports + standalone works together. 
+- It adds the components to the tree. 
+- To add images from assets folder, look for 
+
+```js 
+"assets": [
+    "src/assets"
+]
+
+// or 
+
+"assets": [
+    "src/assets", // add it here.
+    {
+        glob: "**/*"
+    }
+]
+
+// and in template 
+
+<img src="assets/task-mgmt-logo.png"/>
+
+we used src/assets/ to add our logo.
+```
+
+To scaffold components with cli, inside app, we can create a folder name and put the files in it. 
+`ng g c user`
+
+In VS Code, if you click the bulb, its auto imported in the imports array. 
+
+
+### Bindings in angular 
+
+- We have interpolation/ string binding
+- Property or attribute binding ( Property binding wants to target properties, not attributes. So things like aria tags need [attr.aria-valuenow]="currentVal")
+- Event binding 
+
+[Example code](https://stackblitz.com/edit/stackblitz-starters-bjgv9f?file=src%2Fuser.component.ts)
+
+### Computed values
+
+- Use getters to evaluate computed values. So basically, as shown below.
+
+```js 
+get imagePath() {
+    return 'assets/users/' + this.user.url 
+}
+
+and to use them, <img [src]="imagePath"
+```
+
+### Change detection 
+
+- Zone js was used behind to do change detection. It automatically listens to user events / timers etc and checks the app for possible changes. 
+- The moment we update a property, change detction picks it up. 
+- This was the way till recently. Works aytomatically, no instructions required. 
+- With signals, they are special values that tell angular / notify them about value changes and required UI updates. Support is from angular 16.
+- Signals are trackable data containers. It is an object that stores a value and angular will be notified when it changes & angular will be able to update the part of UI that needs updation.
+
+[Signals intro example](https://stackblitz.com/edit/stackblitz-starters-81iznu?file=src%2Fuser.component.ts)
+
+- signals need to be executed. Angular sets up subscriptions behind scenes. So when template value changes, component is re-evaluated.
+- Angular sets up a tracking mechanism that makes sure that UI is updated whenever  underlying value changes. 
+- With zone js, angular creates zones around components where it listens for all kinds of events that could trigger state changes / data changes . 
+- So an invisible grouping around components. 
+- When its detected, angular goes and checks all components within that zone to see if some data changed or not & needs UI updation.
+- With signals, angular could get rid of zone & change detection and UI updates can be performed more efficiently & fine grained way.
+- Rather new. Partially stable by 17. 
+
+[Input / Output example](https://stackblitz.com/edit/stackblitz-starters-yrecpc?file=src%2Fmain.ts)
+- In the above example, we used the traditional input and output. 
+- With signals, we have another syntax.
+
+### Input & output with signals 
+[Example code](https://stackblitz.com/edit/stackblitz-starters-jvdtui?file=src%2Fmain.ts)
+- keep in mind, input signals are read only & cannot be changed from within with set.
+- turns out, we can also use signals for accepting inputs instead of @Input decorator.
+- From outside the component, we set the inputs the same only. That doesnt change. The set value can be non-signal too. 
+- Type vs interface. Both are fine to be used. interface is more common though. We can name it as model.
+
+### Class binding
+
+```js 
+<div [class.active]="currentSelected" />
+```
+
+### Modal example 
+
+[Code example](https://stackblitz.com/edit/stackblitz-starters-4gjcaq?file=src%2Fmodal.component.ts)
+
+### Modal with forms 
+
+[Code example](https://stackblitz.com/edit/stackblitz-starters-6y7rfk?file=src%2Fmodal.component.ts)
+
+
+### Content projection with ngContent 
+
+[Code example](https://stackblitz.com/edit/stackblitz-starters-wkncp6?file=src%2Fmain.ts)
+
+### Pipes 
+
+```js 
+import { DatePipe } from '@angular/common'
+imports: [DatePipe]
+```
+
+- uppercase, lowercase, date, number, currency etc 
+
+### Services 
+
+- keep components lean as possible
+- move non UI logic into service 
+
+[Code example](https://stackblitz.com/edit/stackblitz-starters-5nifxf?file=src%2Fmain.ts)
+
+
+## Angular essentials - Working with modules 
+
+- Angular 16 or less uses Modules 
+- Modules based components vs Stand alone components 
+
+[Example code](https://stackblitz.com/edit/stackblitz-starters-8xudvc?file=src%2Fapp.module.ts)
+- if we need to keep them as standalone, then move them to imports array instead of declarations. 
+- we can create SharedModule too. Make sure to use exports array. Also, use CommonModule within imports array. 
+- For ngModel, we dont need to invoke a signal. Just its reference. 
+- we can call asReadonly() on a signal to get a read only version. Computed is another option.
+
+### Debug 
+
+- source maps, breakpoints, angular dev tools, redux dev tools. 
+
+## Components and Templates 
+
+- when to split ?
+- seperation of concerns & single responsibility principle. 
+- if we put a !, it means the property will never be undefined.
+
+
+### Slot projection 
+
+[Code example](https://stackblitz.com/edit/stackblitz-starters-h34yec?file=src%2Fcard.component.ts)
+
+- with select, we can restrict what is being projected into it. 
+
+```js 
+<ng-content  select="input, textarea"/>
+```
+
+### Scoped styles 
+
+[Code example](https://stackblitz.com/edit/stackblitz-starters-ggxxwr?file=src%2Fcustom-button.component.ts)
+Here, the slot projected styles are not applied unless we set encapsulation to None. 
+
+
+### Host element 
+
+Note: host wont work when encapsulation is none. 
+
+[Code example](https://stackblitz.com/edit/stackblitz-starters-a4ixr2?file=src%2Fcustom-button.component.ts)
+[Example 2](https://stackblitz.com/edit/stackblitz-starters-uvpe82?file=src%2Fcustom-button.component.ts)
+
+### HostBinding and HostListener within components
+
+[Example code](https://stackblitz.com/edit/stackblitz-starters-uvpe82?file=src%2Fcustom-button.component.ts)
+
+
+### Dynamically bind class 
+
+```js 
+<div [class.active]="isSelected">
+<div [class]="{'class1': isSelected, 'class2': isHighlighted }">
+<div [style]="{'font-size' : '20px', fontWeight: 'bold'}">
+<div [style.fontSize]="'20px'">
+```
+
+### Lifecycle 
+
+[Reference](https://angular.dev/guide/components/lifecycle)
+
+[Code example](https://stackblitz.com/edit/stackblitz-starters-7h7huf?file=src%2Fcard.component.ts)
+
+### Template variables & ViewChild
+ 
+[Example code](https://stackblitz.com/edit/stackblitz-starters-vyn27k?file=src%2Fapp.component.ts)
+
+- Viewchild/Children only allows us to grab anything which is part of the template.
+- Projected content is not a part of it.
+- To grab them, we use contentChild/contect children decorators or its function equivalents
+
+```js 
+@ContentChild('input') private control: ElementRef<HTMLInputElement>
+
+// signal alternative 
+private control = contentChild<ElementRef<HTMLInputElement>>('input');
+```
+
+### New life cycle hooks 
+
+- AfterViewInit - guarenteed to have access to elements grabbed using view child. It is not available by default on OnInit.
+- AfterContentInit - safely access the projected content. 
+
+These two are registered inside constructor
+
+- afterRender 
+- afterNextRender 
+
+
+```js 
+
+constructor() {
+    afterRender(() => {
+      // Whenever anything changes anywhere in the app, 
+      // render a lot of times.
+    })
+
+    afterNextRender(() => {
+     // after the next change anywhere in the app.
+     // only be triggered once for the next change anywhere in the app. 
+    })
+}
+
+```
+
+With signals, if we use them in the template and read them by invoking the signal, whenever the value is changed, angular keeps the subscription and re-renders the page 
+But if we use signals in the code ts part, eg, constructor, the value isnt updated automatically
+
+```js 
+contsructor() {
+  console.log(this.currentStatus())
+}
+```
+to read changes in those values, we can use the effect function.
+
+```js 
+contsructor() {
+  
+  effect(() => {
+    // console.log(this.currentStatus())
+    // angular automatically sets up a subscription. 
+  })
+}
+```
+
+to do clean ups, 
+
+```js 
+effect((onCleanup) => {
+  const tasks = getTasks();
+  const timer = setTimeout(() => {
+    console.log(`Current number of tasks: ${tasks().length}`);
+  }, 1000);
+  onCleanup(() => {
+    clearTimeout(timer);
+  });
+});
+```
+
+For loop, we have first, last, odd, even, count as variables available within the loop.
+
+[Example code](https://stackblitz.com/edit/stackblitz-starters-tjnj99?file=src%2Fapp.component.ts)
+
+Using alias 
+
+```js 
+input.required({ alias: 'data', transform: (val) =>  transformedValue })
+output({ alias: 'closeTicket' })
+```
+
+If we need to make 2 way binding ourselves, 
+
+```js 
+@Input() size!: InputSize;
+@Output() sizeChange = new EventEmitter<InputSize>(); // name should be same ending with "Change"
+
+// and in template
+
+<input [(size)]=""  />
+
+
+// for 17.2+ 
+size = model.required<InputSize>() // makes it 2 way bindable
+size().width & size().height in template 
+use set/update from ts file.
+
+```
+
+## Directives 
+
+- Attribute & Structural directive 
+- Enhancements for elements ( built in or components ). They can change properties, attributes, styling or behavior of elements. 
+- eg: adding  ngModel to make it bindable 
+- they have no templates.
+- components are directives without templates.
+- ngModel brings in some classes on the DOM. 
+- @if is angular 17+ 
+- *ngIf is a structural directives. 
+
+[Code example](https://stackblitz.com/edit/stackblitz-starters-hjzdi1?file=src%2Fapp.component.ts)
+
+For situations where, we have a directive with some functionality that should be incorporated by other directives or components. 
+
+in app.component.ts 
+
+```js 
+@Component({
+    host: {}, // if the below directive takes inputs, we can pass it through here.
+    hostDirectives: [LogDirective] // no matter how often we used this component anywhere in the application, it always add the directive onto it.
+})
+export class AuthComponent {
+
+}
+```
+
+### Transformations with Pipes.
+
+- for transforming the way data is displayed.
+[Example code](https://stackblitz.com/edit/stackblitz-starters-91d985?file=src%2Fapp.component.ts)
+
+- Set pure: false if we need to make pipes run again when needed. 
+
+### Service & DI 
+
+- Revisiting Services, DI, Hierarchial Injectors, DI Resolution process, Injection tokens & Values. 
+- DI is a built in feature which says - components, directives, services can request dependencies they rely on & they are provided by angular. 
+- we dont create instances by ourselves, but we request the, and angular creates & passes them back.
+
+```js 
+
+// MyService is the Injection token used by angular to identify the thing it should create and inject
+constructor(private mySvc: MyService) {
+
+}
+```
+- we invoke the signal so that angular sets up subscriptions behind the scenes. 
+- we outsource reusable logic into services.
+
+```js 
+tasks = computed(() => {
+    switch(this.selectedFilter()) {
+        case 'all':
+          return this.svc.allTasks();
+        case 'open':
+          return this.svc.allTasks().filter(t => t.status === 'open')
+        default:
+        return this.svc.allTasks()
+    }
+})
+```
+- providedIn root makes angular aware of the injectable services. 
+- null injector and errors out.
+- platform environment injector (third)
+- app root environment injector (second)
+- module injector (second)
+- emelement injector ( component reaches out first here to request a dependency)
+
+### To provide a service 
+
+```js
+// main.ts 
+bootstrapApplication(AppComponent, {
+    providers: [MyService]
+})
+the above is same as `providedIn: root`. But it does not allow tree shaking. 
+
+// Provide service via Element injector 
+closely tied to components and directives. 
+in component, we can have a providers: [] array. So the service will only be available to that component and its children. 
+
+// Inject service into service 
+we can add them into the constructor of a service, but make sure the injectable decorator is there. 
+if we dont provide the injector, then we need to register the same within the bootstrapApplication configuration.
+components & services reach out to element injector, services doesnt. They are not elements, they are not part of the DOM. 
+They only have access to the environment injector or modules. 
+```
+
+### How is injectable values registered?
+
+```js 
+providers: [TaskService]
+providers: [{ provide: TaskService, useClass: TaskService }]
+
+
+export const TaskServiceToken = new InjectionToken<TaskService>('tasks-service-token')
+providers: [{ provide: TaskServiceToken, useClass: TaskService }]
+
+// in component 
+taskService = inject(TaskServiceToken)
+
+// if constructor format
+constructor(@Inject(TaskServiceToken) private svc: TaskService)
+
+// Non class value for injection 
+
+export const TASK_STATUS_OPTIONS = new InjectionToken<Task>('task-status-options')
+
+export interface Task {
+    value: string;
+    taskStatus: 'string;
+    text: string;
+}
+export const TaskOptions: Task = [
+    { value: "open", taskStatus: 'OPEN' , text: 'Open'},
+    { value: "in-progress", taskStatus: 'IN_PROGRESS' , text: 'In Progress'},
+    { value: "done", taskStatus: 'DONE' , text: 'Completed'}
+]
+
+// in component 
+providers: [
+    { provide: TASK_STATUS_OPTIONS, useValue: TaskOptions}
+]
+
+
+taskOptions = inject(TASK_STATUS_OPTIONS);
+
+```
+
+## Change detection mechanism
+
+- we do not interact with it directly mostly.
+- how do we interact & how it works internally, how do we optimize it. how change detection changes with signals and is related to zone js?
+
+- change detection happens behind the scenes automatically. 
+- we can do few things to improve it though 
+- Angular wraps the entire tree with zone which is a feature provided by zone js.  
+- This library detects events happening within the application and for those events which ha sa listener setup, angular runs it. 
+- It will not run for any random event happening anywhere on the page if no one is listening. 
+- When change detection process starts, it visits all components in entire app , takes a look at all templates there & its bindings & checks if there is a new value for it.
+- If so, the real DOM is updated with new value. 
+- Angular change detection runs twice when something changes, and that happens in development only. 
+- Detect unwanted value changes after change detection was run. ( like retuning Math.random() from a getter property)
+
+To opt out of zone js watch mode ,
+
+```js 
+
+private zone = inject(NgZone);
+
+this.zone.runOutsideAngular(() => {
+    // whatever logic.  avoids zone pollution. 
+})
+```
+OnPush can be turned on a component basis. `ChangeDetectionStrategy.OnPush` 
+
+- component will change only if an event occured within its sub component tree.  
+- if input changes
+- if manually triggers change detection. 
+
+## OnPush & Services
+
+- Service has a property which is exposed as a read only signal. 
+- If we use a non signal property, it becomes a problem. To manually trigger them, 
+
+```js 
+private cdRef = inject(ChangeDetectorRef);
+private destroyRef = inject(DestroyRef);
+
+ngOnInit() {
+    const sub = this.messagesService.message$.subscribe(() => {
+        this.cdRef.markForCheck()
+    })
+    this.destroyRef.onDestroy(() => {
+        sub.unsubscribe()
+    })
+}
+
+
+// in services, have a BehaviorSubject 
+
+messages$ = new BehaviorSubject<string[]>([])
+addMessage() {
+    this.messages$.next(this.messages)
+}
+```
+
+Async pipe can be used to handle subscription. So instead of subscribing manually, use the async pipe in template. 
+if we only use signals, we can remove zone js. 
+Remove from angular.json, build => polyfills: ['zone.js'] entry need to be removed. 
+
+In main.ts, 
+
+```js 
+import { provideExperimentalZonelessChangeDetection } from '@angular/core';
+
+bootstrapapplication(AppComponent, {
+    providers: [provideExperimentalZonelessChangeDetection()] // disables zone js 
+})
+
+```
+Observables are values over time. Signals are values in a container. 
+Observables are great for managing events & streamed data. 
+Signals are great for managing application state. 
+
+// signal to observable 
+toObservable(this.clickCount)
+
+// observable to signals 
+interval$ = interval(1000)
+
+// does auto clean up subscription 
+intervalSignal = toSignal(this.interval$, {
+    initialValue: 0
+});
+
+## HTTP requests 
+
+```js 
+// need to register the module first. 
+providers: [provideHttpClient()], or main.ts 
+
+bootstrapapplication(AppComponent, {
+    providers: [provideHttpClient()]
+})
+
+private httpClient = inject(HttpClient)
+
+ngOnInit() {
+    this.httpClient.get<Person[]>('url', {
+        observe: 'response' // events
+    })
+    .pipe(
+        map(() => )
+    )
+    .subscribe({
+        next: (response) => {
+          //response.body?.places
+        }
+    })
+}
+```
+
+catchError can be used in the pipeline to catch errors.
+catchError((err) => throwError(() => new Error('custom message')))
+
+interceptors 
+
+```js 
+
+function logInterceptor(req: HttpRequest<unknown>, next: HttpHandlerFn) {
+    console.log("intercepted..")
+    const request = req.clone({
+        headers: req.headers.set('X-SOMETHING', 'ddasda')
+    })
+    return next(req).pipe(
+        tap({
+            next: event => {
+                if(event.type === HttpEventType.Response){
+                  // event.status, event.body
+                }
+            }
+        })
+    );
+}
+
+bootstrapApplication(AppComponent, {
+    providers: [provideHttpClient(withInterceptors([logInterceptor]))]
+})
+
+// class based 
+
+import {
+  HttpEvent,
+  HttpHandler,
+  HttpInterceptor,
+  HttpRequest,
+} from '@angular/common/http';
+import { Observable } from 'rxjs';
+ 
+@Injectable()
+class LoggingInterceptor implements HttpInterceptor {
+  intercept(req: HttpRequest<unknown>, handler: HttpHandler): Observable<HttpEvent<any>> {
+    console.log('Request URL: ' + req.url);
+    return handler.handle(req);
+  }
+}
+
+providers: [
+  provideHttpClient(
+    withInterceptorsFromDi()
+  ),
+  { provide: HTTP_INTERCEPTORS, useClass: LoggingInterceptor, multi: true }
+]
+```
+
+## Forms 
+
+- 2 ways of handling forms 
+- reactive forms, template driven forms. 
+
+```js 
+// FormsModule 
+
+ng-pristine ng-invalid ng-touched 
+
+<form #form='ngForm" (ngSubmit)="onSubmit(form)">
+// store control object that is created under the hood by angular for this input in this template variable.
+  <input #email='ngModel' required email  ngModel name="email"/>
+
+   
+  <input ngModel required name="password" minlength="6"/>
+  <button> Go </button>
+
+  @if(email.touched && email.dirty && email.invalid) {
+    <span> email Error.. </span>
+  }
+
+  @if(email.touched && password.touched && form.form.invalid) {
+    <span> Error.. </span>
+  }
+</form>
+
+private form = viewChild.required<NgForm>('form')
+private destroyRef = inject(DestroyRef);
+
+constructor() {
+    // register a fn that should be executed once, once the component has been rendered for the first time.
+    afterNextRender(() => {
+
+        const savedForm = window.localStorage.getItem('saved');
+        if(savedForm) {
+            // parse and get email 
+           setTimeout(() => {
+             this.form().controls['email'].setValue(savedEmail)
+           }, 1)
+
+            this.form().setValue({
+                email: '',
+                password: ''
+            })
+        }
+      const sub = this.form().valueChanges?.pipe(debounceTime(500)).subscribe({
+        next: (value: any) => console.log;
+      });
+
+      this.destroyRef.onDestroy(() => sub?.unsubscribe())
+    }) 
+}
+
+onSubmit(formData: NgForm) {
+ if(formData.form.invalid) {
+    return;
+ }
+ 
+formData.form.reset();
+
+  // formData.form.value.email, 
+}
+
+```
+
+With reactive forms, 
+
+```js 
+
+//ReactiveFormsModule 
+
+<form [formGroup]="form">
+ <input [formControl]="form.controls.email"/>
+  <input [formControlName]="password"/>
+ <input />
+</form>
+
+
+function mustContainValidationFn(control: AbstractCOntrol) {
+    if(control.value.includes('?')){
+       return null; 
+    }
+    return {
+      noQuestionMark: true
+    }
+}
+
+
+function emailIsUnique(control: AbstractCOntrol) {
+    if(control.value !== 'test@example.com') {
+       return of(null)
+    } 
+    return of({ notUnique: true})
+}
+
+form = new FormGroup({
+    email: new FormControl('', [Validators.required, Validators.email]),
+     email: new FormControl('', {
+        validators: [Validators.required, Validators.email]
+     }),
+    password: new Formcontrol('', {
+        validators: [Validators.required, mustContainValidationFn],
+        asyncValidators:[emailIsUnique]
+    })
+})
+
+ngOnInit() {
+    this.form.patchValue() 
+    this.form.setValue()
+    // needs to do destroyRef too. 
+    this.form.valueChanges.pipe(debounceTime(500)).subscribe({
+        next: value => {}
+    })
+}
+
+onSubmit() {
+   this.form.value.email, this.form.value.password 
+}
+
+```
+
+### Routing 
+
+```js 
+
+app.routes.ts 
+
+export const routes: Routes = [
+    { path: '', component: NoTaskComponent },
+    { path: 'tasks', component: TasksComponent },
+    { path: 'users/:userId', component: UserComponent }
+]
+
+bootstrapApplication(AppComponent, {
+    providers: [provideRouter(routes, withComponentInputBinding())]
+})
+
+imports: [RouterOutlet]
+
+<router-outlet/>
+```
+- regular links are not allowed. It refreshes the page. 
+- use routerLink which blocks the default anchor functionality
+
+```js 
+
+imports: [RouterLink, RouterLinkActive]
+<a routerLink="/tasks" routerLinkActive="selected"
+
+<a [routerLink]="['/users', user().id]" routerLinkActive="selected"
+
+// set by angular.
+userId = input.required<string>();
+
+privtse svc = inject(UserSevrice);
+
+
+
+{{ userName() }}
+userName = computed(() => this.svc.users.find()).name
+
+```
+
+to get hold of dynamic path values, with help of inputs if we enable withComponentInputBinding
+alternative way is to DI ActivatedRoute 
+
+```
+// use destroyRef too. 
+
+activatedRoute.paramMap.subscribe({
+    next: paramMap => {
+        this.svc.users.find(u => u.id === paramMap.get('userId')) 
+        
+    }
+})
+```
+Nested routes 
+
+```js 
+
+{
+    path: 'users/:userId',
+    component: UserTasksCOmponent, 
+    children: [
+        { path: '', redirectTo: 'tasks', pathMatch: 'prefix' // or full }
+        { path: 'tasks', component: TasksComponent }
+    ]
+},
+{
+    path: '**',
+    component: FallbackComponent
+}
+
+
+relative 
+
+routerLink="tasks/new"
+
+access parent route data from child 
+
+bootstrapApplication(AppComponent, {
+    providers: [provideRouter(routes, withComponentInputBinding(), withRouterConfig({
+        paramsInheritanceStrategy: 'always'
+    }) )]
+})
+
+now, we can use input to get the data 
+
+to go back, ../ use this. 
+
+router.navigate(['/users', this.userId(), 'tasks'], {
+    replaceUrl: true
+})
+
+// redirect users 
+
+activated route vs snapshot 
+
+routerlink="./" stay where I am 
+
+[queryParams]="{order: 'asc'}"
+
+if input binding enabled, 
+order = input<'asc' | 'desc'>()
+
+[queryParams]="{order: order: order() ==='asc' ? 'desc': 'asc'}"
+
+
+export const resolveUsername: ResolveFn<string> = (activatedRoute, routerstate) => {
+  const svc = inject(UserService)
+  return svc.users.find(...)
+}
+
+{
+    data: {
+        message: 'hello'
+    },
+    resolve: {
+       username: resolveUsername
+    }
+}
+
+message = input.required<string>()
+
+onInit=> activatedRoute.data.subscribe()
+
+{
+  resolve: {},
+  runGuardsAndResolvers: 'always' // paramsOrQueryParamschange
+}
+
+```

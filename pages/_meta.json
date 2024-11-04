@@ -1,0 +1,20 @@
+{
+  "index": "Intro",
+  "intermediate": "Intermediate topics",
+  "routing": "Routing - Deep dive",
+  "data-fetch": "Data fetching - Deep dive",
+  "mutate": "Mutate Data - Deep dive",
+  "caching": "Understand & configure caching",
+  "optimization": "Optimizations",
+  "authentication": "Authentication",
+  "about": {
+    "title": "About",
+    "type": "page"
+  },
+  "contact": {
+    "title": "Connect with me ↗",
+    "type": "page",
+    "href": "https://www.linkedin.com/in/harikrishkk/",
+    "newWindow": true
+  }
+}

@@ -1,0 +1,420 @@
+# Authentication
+
+## User signup
+
+To create a user
+
+```js
+// lib/user.js
+import db from './db';
+
+export function createUser(email, password) {
+  const result = db
+    .prepare('INSERT INTO users (email, password) VALUES (?, ?)')
+    .run(email, password);
+  return result.lastInsertRowid;
+}
+```
+
+When creating a user, his passwords need to be hashed, so
+
+```js
+// lib/hash.js
+import crypto from 'node:crypto';
+
+export function hashUserPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+
+  const hashedPassword = crypto.scryptSync(password, salt, 64);
+  return hashedPassword.toString('hex') + ':' + salt;
+}
+
+export function verifyPassword(storedPassword, suppliedPassword) {
+  const [hashedPassword, salt] = storedPassword.split(':');
+  const hashedPasswordBuf = Buffer.from(hashedPassword, 'hex');
+  const suppliedPasswordBuf = crypto.scryptSync(suppliedPassword, salt, 64);
+  return crypto.timingSafeEqual(hashedPasswordBuf, suppliedPasswordBuf);
+}
+```
+
+Need an action to handle the interaction
+
+```js
+// actions/auth-actions.js
+
+'use server';
+
+import { hashUserPassword } from '@/lib/hash';
+import { createUser } from '@/lib/user';
+import { redirect } from 'next/navigation';
+
+export async function signUp(prevState, formData) {
+  const email = formData.get('email');
+  const password = formData.get('password');
+  // validate
+  let errors = {};
+  if (!email.includes('@')) {
+    errors.email = 'Email is invalid';
+  }
+  if (password.trim().length < 8) {
+    errors.password = 'Password is invalid';
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return {
+      errors,
+    };
+  }
+
+  const hashedPassword = hashUserPassword(password);
+
+  try {
+    createUser(email, hashedPassword);
+  } catch (error) {
+    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return {
+        errors: {
+          email: 'Email already exists',
+        },
+      };
+    }
+    throw error;
+  }
+  redirect('/training');
+}
+```
+
+and in the component, we use the action
+
+```js
+'use client';
+import { signUp } from '@/actions/auth-actions';
+import Link from 'next/link';
+import { useFormState } from 'react-dom';
+
+export default function AuthForm() {
+  const [formState, formAction] = useFormState(signUp, {});
+  return (
+    <form id="auth-form" action={formAction}>
+      <input type="email" name="email" id="email" />
+      <input type="password" name="password" id="password" />
+      {formState.errors && (
+        <ul id="form-errors">
+          {Object.keys(formState.errors).map((err) => (
+            <li key={err}>{formState.errors[err]}</li>
+          ))}
+        </ul>
+      )}
+      <button type="submit">Create Account</button>
+      <p>
+        <Link href="/">Login with existing account.</Link>
+      </p>
+    </form>
+  );
+}
+```
+
+### Third party library
+
+- Lucia. Wec an use it in next, node etc
+- NextAuth doesnt work well with router.
+
+`npm i lucia @lucia-auth/adapter-sqlite`
+
+in lib/auth.js
+
+```js
+import { Lucia } from 'lucia';
+
+import { BetterSqlite3Adapter } from '@lucia-auth/adapter-sqlite';
+import db from './db';
+import { cookies } from 'next/headers';
+const adapter = new BetterSqlite3Adapter(db, {
+  user: 'users',
+  session: 'sessions',
+});
+const lucia = new Lucia(adapter, {
+  sessionCookie: {
+    expires: false,
+    attributes: {
+      secure: process.env.NODE_ENV === 'production',
+    },
+  },
+});
+
+export async function createAuthSession(userId) {
+  const session = await lucia.createSession(userId, {});
+  const sessionCookie = lucia.createSessionCookie(session.id);
+  cookies().set(
+    sessionCookie.name,
+    sessionCookie.value,
+    sessionCookie.attributes
+  );
+}
+```
+
+and in the actions,
+
+```js
+'use server';
+
+import { createAuthSession } from '@/lib/auth';
+import { hashUserPassword } from '@/lib/hash';
+import { createUser } from '@/lib/user';
+import { redirect } from 'next/navigation';
+
+export async function signUp(prevState, formData) {
+  const email = formData.get('email');
+  const password = formData.get('password');
+  // validate
+  let errors = {};
+  if (!email.includes('@')) {
+    errors.email = 'Email is invalid';
+  }
+  if (password.trim().length < 8) {
+    errors.password = 'Password is invalid';
+  }
+
+  if (Object.keys(errors).length > 0) {
+    return {
+      errors,
+    };
+  }
+
+  const hashedPassword = hashUserPassword(password);
+
+  try {
+    const id = createUser(email, hashedPassword);
+    await createAuthSession(id);
+    redirect('/training');
+  } catch (error) {
+    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return {
+        errors: {
+          email: 'Email already exists',
+        },
+      };
+    }
+    throw error;
+  }
+}
+```
+
+With that, if we provide credentials, and click create account, it shoudl redirect to the training route.
+Inspect and find the cookie in browser. Application > Cookies > Select the localhost > auth_session
+
+Auth cookie is automatically added.
+
+### Verify an active auth session
+
+```js
+export async function verifyAuth() {
+  const sessionCookie = cookies().get(lucia.sessionCookieName);
+  if (!sessionCookie) {
+    return {
+      user: null,
+      session: null,
+    };
+  }
+  const sessionId = sessionCookie.value;
+  if (!sessionId) {
+    return {
+      user: null,
+      session: null,
+    };
+  }
+  const result = await lucia.validateSession(sessionId);
+  try {
+    if (result.session && result.session.fresh) {
+      const sessionCookie = lucia.createSessionCookie(result.session.id);
+      cookies().set(
+        sessionCookie.name,
+        sessionCookie.value,
+        sessionCookie.attributes
+      );
+    }
+    if (!result.session) {
+      const sessionCookie = lucia.createBlankSessionCookie();
+      cookies().set(
+        sessionCookie.name,
+        sessionCookie.value,
+        sessionCookie.attributes
+      );
+    }
+  } catch (error) {}
+
+  return result;
+}
+```
+
+and in the component, we check for the session
+
+```js
+import { verifyAuth } from '@/lib/auth';
+import { getTrainings } from '@/lib/training';
+import { redirect } from 'next/navigation';
+
+export default async function TrainingPage() {
+  const result = await verifyAuth();
+  if (!result.user) {
+    return redirect('/');
+  }
+  const trainingSessions = getTrainings();
+}
+```
+
+### Switch auth modes
+
+If we redirect the user to login using a query param
+
+```js
+<Link href="/?mode=login">Login with existing account.</Link>
+```
+
+we can access them at the app/page.js
+
+```js
+export default async function Home({ searchParams }) {
+  const formMode = searchParams.mode || 'login';
+  return <AuthForm mode={formMode} />;
+}
+```
+
+and in the auth form component
+
+```js
+'use client';
+import { signUp } from '@/actions/auth-actions';
+import Link from 'next/link';
+import { useFormState } from 'react-dom';
+
+export default function AuthForm({ mode }) {
+  ...
+  return (
+    <form id="auth-form" action={formAction}>
+      ...
+      <p>
+        <button type="submit">
+          {mode === 'login' ? 'Login' : 'Create account'}
+        </button>
+      </p>
+      <p>
+        {mode === 'login' && (
+          <Link href="/?mode=signup">Create an account.</Link>
+        )}
+        {mode === 'signup' && (
+          <Link href="/?mode=login">Login to the account.</Link>
+        )}
+      </p>
+    </form>
+  );
+}
+```
+
+in lib/user.js
+
+```js
+export function getUserByEmail(email) {
+  const result = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  return result;
+}
+```
+
+and in auth action
+
+```js
+export async function login(prevState, formData) {
+  const email = formData.get('email');
+  const password = formData.get('password');
+  const exitingUser = getUserByEmail(email);
+  if (!exitingUser) {
+    return {
+      errors: {
+        email: 'Cannot authenticate',
+      },
+    };
+  }
+  const isValidPassword = verifyPassword(exitingUser.password, password);
+  if (!isValidPassword) {
+    return {
+      errors: {
+        password: 'Cannot authenticate password',
+      },
+    };
+  }
+
+  await createAuthSession(exitingUser.id);
+  redirect('/training');
+}
+
+export async function auth(mode, prevState, formData) {
+  if (mode === 'login') {
+    return login(prevState, formData);
+  }
+  return signUp(prevState, formData);
+}
+```
+
+and in auth form,
+
+```js
+export default function AuthForm({ mode }) {
+  const [formState, formAction] = useFormState(auth.bind(null, mode), {});
+}
+```
+
+### Add auth only layout
+
+```
+app/
+  (auth)/
+    training/
+    layout.js
+```
+
+and in the new layout,
+
+```js
+import '../globals.css';
+
+export const metadata = {
+  title: 'Next Auth',
+  description: 'Next.js Authentication',
+};
+
+export default function AuthRootLayout({ children }) {
+  return (
+    <>
+      <header id="auth-header">
+        <p> Welcome</p>
+        <form>
+          <button> Logout </button>
+        </form>
+      </header>
+      {children}
+    </>
+  );
+}
+```
+
+### Logout
+
+In lib/auth.js
+
+```js
+export async function destroySession() {
+  const { session } = await verifyAuth();
+  if (!session) {
+    return {
+      error: 'Unauthorized',
+    };
+  }
+  await lucia.invalidateSession(session.id);
+  const sessionCookie = lucia.createBlankSessionCookie();
+  cookies().set(
+    sessionCookie.name,
+    sessionCookie.value,
+    sessionCookie.attributes
+  );
+}
+```

@@ -1,0 +1,351 @@
+# Data fetching
+
+## Option 1: Client side data fetching.
+
+- Assuming we have a backend from which we fetch data, we can do it like the traditional react way using `useEffect` and `fetch`
+- Be sure to add the `use client` directive
+
+```js
+// app/(content)/news/page.js
+
+'use client';
+import NewsList from '@/components/news-list';
+import React, { useEffect, useState } from 'react';
+
+const NewsPage = () => {
+  const [error, setError] = useState();
+  const [isLoading, setLoading] = useState(false);
+  const [news, setNews] = useState([]);
+
+  useEffect(() => {
+    async function fetchNews() {
+      setLoading(true);
+      const response = await fetch('http://localhost:8080/news');
+      if (!response.ok) {
+        setError('Failed to fetch');
+        setLoading(false);
+      }
+      setLoading(false);
+      const news = await response.json();
+      setNews(news);
+    }
+    fetchNews();
+  }, []);
+
+  if (error) {
+    return <p> Error!</p>;
+  }
+  if (isLoading) {
+    return <p> Loading...</p>;
+  }
+
+  let newsContent;
+  if (news && news.length > 0) {
+    newsContent = <NewsList news={news} />;
+  }
+  return (
+    <div>
+      <h1> News Page </h1>
+      {newsContent}
+    </div>
+  );
+};
+
+export default NewsPage;
+```
+
+This is less ideal than running them on server.
+
+## Option 2: Server side data fetching
+
+Server components can return promises too. So we can make them async. This gives SEO advantage too.
+
+```js
+import NewsList from '@/components/news-list';
+
+const NewsPage = async () => {
+  const response = await fetch('http://localhost:8080/news');
+  if (!response.ok) {
+    throw new Error('Failed to fetch news');
+  }
+  const news = await response.json();
+  return (
+    <div>
+      <h1> News Page </h1>
+      <NewsList news={news} />
+    </div>
+  );
+};
+
+export default NewsPage;
+```
+
+We can fetch the data directly from backend. We can directly reach out to the DB from the next js app.
+make sure, we move the `data.db` from backend folder to the root of the app first.
+
+```js
+// lib/news.js
+
+import sql from 'better-sqlite3';
+
+const db = sql('data.db');
+
+export function getAllNews() {
+  const news = db.prepare('SELECT * FROM news').all();
+  return news;
+}
+```
+
+and then, in the component
+
+```js
+import NewsList from '@/components/news-list';
+import { getAllNews } from '@/lib/news';
+
+const NewsPage = async () => {
+  // here, the function directly connects to Database to fetch the data
+  const news = getAllNews();
+  return (
+    <div>
+      <h1> News Page </h1>
+      <NewsList news={news} />
+    </div>
+  );
+};
+
+export default NewsPage;
+```
+
+This is the best way to fetch data if we own the data base. If we have an external api, we need to send another HTTP request though.
+To simulate a slow network, we can convert the method into an async one and add a promise delay there.
+
+```js
+export async function getAllNews() {
+  const news = db.prepare('SELECT * FROM news').all();
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  return news;
+}
+```
+
+and in the component, as a sibling to page, we add a `loading.js`
+
+```
+app/
+ (content)/
+    news/
+     page.js
+     loading.js
+
+```
+
+and then, in the page component,
+
+```js
+import NewsList from '@/components/news-list';
+import { getAllNews } from '@/lib/news';
+
+const NewsPage = async () => {
+  const news = await getAllNews();
+  return (
+    <div>
+      <h1> News Page </h1>
+      <NewsList news={news} />
+    </div>
+  );
+};
+
+export default NewsPage;
+```
+
+and for the NewsDetail component, while loading, it shows the closest `loading.js` content.
+
+```js
+import { getNewsItem } from '@/lib/news';
+
+const NewsDetail = async ({ params }) => {
+  const newsId = params.id;
+  const newsItem = await getNewsItem(newsId);
+};
+```
+
+and in the other page, add respective `loading.js` nearby, and then
+
+```js
+const ImagePage = async ({ params }) => {
+  const newsItemSlug = params.id;
+  const newsItem = await getNewsItem(newsItemSlug);
+
+  if (!newsItem) {
+    notFound();
+  }
+  return (
+    <div className="fullscreen-image">
+      <img src={`/images/news/${newsItem.image}`} alt={newsItem.title} />
+    </div>
+  );
+};
+```
+
+With the interceptor page, we have a problem. Since we need to mark it as `use client` since we use the `useRouter` hook, we cannot use the async await syntax. Instead, the alternate option is to make a smaller component, offload the logic to that component, let it hold the logic to client side render, and use them in the bigger component which is a server rendered component.
+
+Create a smaller client side component
+
+```js
+'use client';
+import { useRouter } from 'next/navigation';
+import React from 'react';
+
+const ModalbackDrop = () => {
+  const router = useRouter();
+  return <div className="modal-backdrop" onClick={() => router.back()} />;
+};
+
+export default ModalbackDrop;
+```
+
+and then, use that within the server component, we can remove the use client directive, add async await and remove the hooks.
+
+```js
+import ModalbackDrop from '@/components/modal-backdrop';
+import { getNewsItem } from '@/lib/news';
+
+const ImageInterceptedPage = async ({ params }) => {
+  const newsItemSlug = params.id;
+  const newsItem = await getNewsItem(newsItemSlug);
+
+  if (!newsItem) {
+    notFound();
+  }
+  return (
+    <>
+      <ModalbackDrop />
+      ...
+    </>
+  );
+};
+
+export default ImageInterceptedPage;
+```
+
+Now, the functionality should work as usual. We can add a `loading.js` to the closest sibling if we need to show specific loading messages.
+
+Note, the name of the file should be default.js, and not page.js below.
+
+```
+app/
+  (content)/
+    news/
+      [slug]/
+        @modal/
+          default.js // not page.js
+```
+
+On other pages too, we just need to do similar changes
+
+```js
+import NewsList from '@/components/news-list';
+import { getLatestNews } from '@/lib/news';
+import React from 'react';
+
+const LatestPage = async () => {
+  const latestNews = await getLatestNews();
+  return (
+    <>
+      <h2> Latest News </h2>
+      <NewsList news={latestNews} />
+    </>
+  );
+};
+
+export default LatestPage;
+```
+
+## Granular data fetching with Suspense.
+
+Here, we create smaller components and delegate logic to it, wrap the same with a Suspense so that we are only showing a fallback for that component and its loading fallback. Basically, just a refactor, done in a granular way.
+
+```js
+import NewsList from '@/components/news-list';
+import {
+  getAvailableNewsMonths,
+  getAvailableNewsYears,
+  getNewsForYear,
+  getNewsForYearAndMonth,
+} from '@/lib/news';
+import Link from 'next/link';
+import React, { Suspense } from 'react';
+
+async function FilterHeader({ year, month }) {
+  const getAvailableNewsYrs = await getAvailableNewsYears();
+  let links = getAvailableNewsYrs;
+
+  const getAvailableNewsMnths = await getAvailableNewsMonths(year);
+
+  if (
+    (year && !getAvailableNewsYrs.includes(year)) ||
+    (month && !getAvailableNewsMnths.includes(month))
+  ) {
+    throw new Error('Invalid Filter');
+  }
+
+  if (year && !month) {
+    links = await getAvailableNewsMonths(year);
+  }
+
+  if (year && month) {
+    links = [];
+  }
+
+  return (
+    <header id="archive-header">
+      <nav>
+        <ul>
+          {links.map((link) => {
+            const href = year ? `/archive/${year}/${link}` : `/archive/${link}`;
+            return (
+              <li key={link}>
+                <Link href={href}>{link}</Link>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+    </header>
+  );
+}
+
+async function FilteredNews({ year, month }) {
+  let news;
+  if (year && !month) {
+    news = await getNewsForYear(year);
+  } else if (year && month) {
+    news = await getNewsForYearAndMonth(year, month);
+  }
+  let newsContent = <p> No news available</p>;
+
+  if (news && news.length > 0) {
+    newsContent = <NewsList news={news} />;
+  }
+  return newsContent;
+}
+
+const FilteredNewsPage = async ({ params }) => {
+  const filter = params.filter;
+  const selectedYear = filter?.[0];
+  const selectedMonth = filter?.[1];
+
+  return (
+    <>
+      <Suspense fallback={<p>Loading header..</p>}>
+        <FilterHeader year={selectedYear} month={selectedMonth} />
+      </Suspense>
+
+      <Suspense fallback={<p>Loading news content..</p>}>
+        <FilteredNews year={selectedYear} month={selectedMonth} />
+      </Suspense>
+    </>
+  );
+};
+
+export default FilteredNewsPage;
+```

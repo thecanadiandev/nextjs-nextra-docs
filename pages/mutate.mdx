@@ -1,0 +1,573 @@
+# Data mutation
+
+When we enter the data, we need to store them in a database.
+
+- Option 1 is to have a standalone backend, a separate one that recives request from next js app and store/mutate data. But this is overly complex and unnecessary extra server.
+- Option 2 is to have an integrated nextjs app. The app itself contains the data mutation code & reach out to data stores directly.
+
+We could also have some route handlers inside the `/api/posts/route.js`
+
+Next offers a better way of data submission & mutation.
+
+## Server actions
+
+- It is not a nextjs specific feature, but react feature itself, if we use react in an environment where it works.
+  On a standard react project, it won't work though.
+
+- Server actions must be async, and needs a `use server` directive.
+- We just need to add the logic for form submission within the server action.
+
+```js
+import { storePost } from '@/lib/posts';
+
+export default function NewPostPage() {
+  async function createPost(formData) {
+    // a form action when added with a use server directive becomes a server action
+    'use server';
+    const title = formData.get('title');
+    const image = formData.get('image');
+    const content = formData.get('content');
+
+    storePost({
+      imageUrl: '',
+      title,
+      content,
+      userId: 1,
+    });
+  }
+
+  return (
+    <>
+      <h1>Create a new post</h1>
+      <form action={createPost}>
+        <input type="text" id="title" name="title" />
+        <input
+          type="file"
+          accept="image/png, image/jpeg"
+          id="image"
+          name="image"
+        />
+        <textarea id="content" name="content" rows="5" />
+        <p>
+          <button type="reset">Reset</button>
+          <button>Create Post</button>
+        </p>
+      </form>
+    </>
+  );
+}
+```
+
+## Provide user feedback with useFormStatus hook
+
+Here, we create a separate client component, and this must reside within the form element of the parent.
+Then only this setup will work. It should be marked with the `use client` too.
+
+```js
+'use client';
+import { useFormStatus } from 'react-dom';
+
+const FormSubmit = () => {
+  // gives form submission details of surrounding form
+  const status = useFormStatus();
+
+  if (status.pending) {
+    return <p> Creating post..</p>;
+  }
+  return (
+    <>
+      <button type="reset">Reset</button>
+      <button>Create Post</button>
+    </>
+  );
+};
+
+export default FormSubmit;
+```
+
+and lets use this component within the form section of the consuming component
+
+```js
+import FormSubmit from '@/components/form-submit';
+import { storePost } from '@/lib/posts';
+import { redirect } from 'next/navigation';
+
+export default function NewPostPage() {
+  async function createPost(formData) {
+    // a form action when added with a use server directive becomes a server action
+    'use server';
+    const title = formData.get('title');
+    const image = formData.get('image');
+    const content = formData.get('content');
+
+    await storePost({
+      imageUrl: '',
+      title,
+      content,
+      userId: 1,
+    });
+    redirect('/feed');
+  }
+
+  return (
+    <>
+      <h1>Create a new post</h1>
+      <form action={createPost}>
+        <input type="text" id="title" name="title" />
+        <input
+          type="file"
+          accept="image/png, image/jpeg"
+          id="image"
+          name="image"
+        />
+        <textarea id="content" name="content" rows="5" />
+        <FormSubmit />
+      </form>
+    </>
+  );
+}
+```
+
+## Important change
+
+Note: instead of `useFormState` hook, react team changed the name to `useActionState`. And also, the import path changed too.
+But this is made available only on some latest Nextjs versions.
+
+```js
+import { useFormState } from 'react-dom';
+import { useActionState } from 'react';
+```
+
+## Validate user input with useFormState hook
+
+We need to validate the data on server to make sure, user hasn't tampered with it.
+Inside the server action, we can have validation logic and in the end, if we can return an object with the details based on which the form can show validation messages, it will be great. We can do that with `useFormState` or `useActionState` which is the newer name of the same.
+
+Have a client component
+
+```js
+// post-form.js
+
+'use client';
+
+import { useFormState } from 'react-dom';
+import FormSubmit from './form-submit';
+
+const PostForm = ({ action }) => {
+  const [state, formAction] = useFormState(action, {});
+
+  return (
+    <>
+      <h1>Create a new post</h1>
+      <form action={formAction}>
+        <p className="form-control">
+          <label htmlFor="title">Title</label>
+          <input type="text" id="title" name="title" />
+        </p>
+        <p className="form-control">
+          <label htmlFor="image">Image URL</label>
+          <input
+            type="file"
+            accept="image/png, image/jpeg"
+            id="image"
+            name="image"
+          />
+        </p>
+        <p className="form-control">
+          <label htmlFor="content">Content</label>
+          <textarea id="content" name="content" rows="5" />
+        </p>
+        <p className="form-actions">
+          <FormSubmit />
+        </p>
+        {state.errors && (
+          <ul className="form-errors">
+            {state.errors.map((error) => (
+              <li key={error}>{error}</li>
+            ))}
+          </ul>
+        )}
+      </form>
+    </>
+  );
+};
+
+export default PostForm;
+```
+
+and then, we can use this inside of a server component
+
+```js
+import PostForm from '@/components/post-form';
+import { storePost } from '@/lib/posts';
+import { redirect } from 'next/navigation';
+
+export default function NewPostPage() {
+  async function createPost(prevState, formData) {
+    'use server';
+    const title = formData.get('title');
+    const image = formData.get('image');
+    const content = formData.get('content');
+
+    let errors = [];
+
+    if (!title || title.trim().length === 0) {
+      errors.push('Title is required');
+    }
+
+    if (!content || content.trim().length === 0) {
+      errors.push('Content is required');
+    }
+
+    // this error object returns an array. That is handled in state.errors above.
+
+    if (errors.length > 0) {
+      return { errors };
+    }
+
+    await storePost({
+      imageUrl: '',
+      title,
+      content,
+      userId: 1,
+    });
+    redirect('/feed');
+  }
+
+  return <PostForm action={createPost} />;
+}
+```
+
+Now, upon form submission, we get back the error messages and based on that, we can display the same within the server component that holds the client component.
+
+## Store server actions in separate files
+
+At the root, we can create `actions/post.js` and within that
+
+```js
+'use server';
+
+import { storePost } from '@/lib/posts';
+import { redirect } from 'next/navigation';
+
+export async function createPost(prevState, formData) {
+  const title = formData.get('title');
+  const image = formData.get('image');
+  const content = formData.get('content');
+
+  let errors = [];
+
+  if (!title || title.trim().length === 0) {
+    errors.push('Title is required');
+  }
+
+  if (!content || content.trim().length === 0) {
+    errors.push('Content is required');
+  }
+
+  if (errors.length > 0) {
+    return { errors };
+  }
+
+  await storePost({
+    imageUrl: '',
+    title,
+    content,
+    userId: 1,
+  });
+  redirect('/feed');
+}
+```
+
+and now, we can use this server action inside the page
+
+```js
+import { createPost } from '@/actions/posts';
+import PostForm from '@/components/post-form';
+
+export default function NewPostPage() {
+  return <PostForm action={createPost} />;
+}
+```
+
+This should work exactly as it is.
+
+Note: `use server` does not guarentee that code will only execute on server. This won't hide code from the client. But it is just a hint telling Nextjs that something should become a server action.
+
+There is a [server-only](https://nextjs.org/docs/app/building-your-application/rendering/composition-patterns#keeping-server-only-code-out-of-the-client-environment) package which can do that.
+
+## Uploading & storing images
+
+AWS3 or cloudinary can be option.
+
+Have an account on cloudinary for free.
+Install it.
+
+```
+npm i cloudinary
+```
+
+in libs/cloudinary, add the following.
+
+```js
+import { v2 as cloudinary } from 'cloudinary';
+
+if (!process.env.CLOUDINARY_CLOUD_NAME) {
+  throw new Error('CLOUDINARY_CLOUD_NAME is not set');
+}
+
+if (!process.env.CLOUDINARY_API_KEY) {
+  throw new Error('CLOUDINARY_API_KEY is not set');
+}
+
+if (!process.env.CLOUDINARY_API_SECRET) {
+  throw new Error('CLOUDINARY_API_SECRET is not set');
+}
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+export async function uploadImage(image) {
+  const imageData = await image.arrayBuffer();
+  const mime = image.type;
+  const encoding = 'base64';
+  const base64Data = Buffer.from(imageData).toString('base64');
+  const fileUri = 'data:' + mime + ';' + encoding + ',' + base64Data;
+  const result = await cloudinary.uploader.upload(fileUri, {
+    folder: 'nextjs-course-mutations',
+  });
+  return result.secure_url;
+}
+```
+
+From the cloudinary dashboard, add the env variables in the `.env.local`
+
+```
+CLOUDINARY_CLOUD_NAME=your_username
+CLOUDINARY_API_KEY=1234567890
+CLOUDINARY_API_SECRET=some_random_keys
+```
+
+With that, we are ready to upload images to cloudinary from our actions
+
+```js
+// actions/posts.js
+
+'use server';
+
+import { uploadImage } from '@/lib/cloudinary';
+import { storePost } from '@/lib/posts';
+import { redirect } from 'next/navigation';
+
+export async function createPost(prevState, formData) {
+  const title = formData.get('title');
+  const image = formData.get('image');
+  const content = formData.get('content');
+
+  let errors = [];
+
+  if (!title || title.trim().length === 0) {
+    errors.push('Title is required');
+  }
+
+  if (!content || content.trim().length === 0) {
+    errors.push('Content is required');
+  }
+
+  if (!image || image.size === 0) {
+    errors.push('Image is required');
+  }
+
+  if (errors.length > 0) {
+    return { errors };
+  }
+
+  let imageUrl;
+  try {
+    imageUrl = await uploadImage(image);
+  } catch (error) {
+    throw new Error('Image upload failed..');
+  }
+
+  await storePost({
+    imageUrl,
+    title,
+    content,
+    userId: 1,
+  });
+  redirect('/feed');
+}
+```
+
+and it should add the same under the bucket name provided in cloudinary dashboard's Media Explorer section.
+
+## Alternate ways to use, configure & trigger server actions
+
+In the actions file,
+
+```js
+export async function togglePostLikeStatus(postId) {
+  updatePostLikeStatus(postId, 2);
+}
+```
+
+and in the component/posts.js,
+
+```js
+import { togglePostLikeStatus } from '@/actions/posts';
+
+<form
+  action={togglePostLikeStatus.bind(null, post.id)}
+  className={post.isLiked ? 'liked' : ''}
+>
+  <LikeButton />
+</form>;
+```
+
+we see the changed status if we refresh the page. To make it work on click, on the actions file,
+
+```js
+import { revalidatePath } from 'next/cache';
+
+export async function togglePostLikeStatus(postId) {
+  await updatePostLikeStatus(postId, 2);
+  revalidatePath('/feed');
+}
+```
+
+now, the status of likes changed.
+
+Another option is:
+
+`revalidatePath('/', 'layout');` means, all pages wrapped by the layout should refresh.
+
+## Optimistic update
+
+We update the new state immediately, and then do the update behind the scenes.
+
+```js
+import { useOptimistic } from 'react';
+
+export default function Posts({ posts }) {
+  // hook takes data, and a function triggered by react upon getting back the data
+  const [optimisticPosts, updateOptimisticPosts] = useOptimistic(
+    posts,
+    (prevPosts, updatedPostId) => {
+      // find the index first
+      const updatedPostIndex = prevPosts.findIndex(
+        (post) => post.id === updatedPostId
+      );
+
+      if (updatedPostIndex === -1) {
+        return prevPosts;
+      }
+      const updatedPost = { ...prevPosts[updatedPostIndex] };
+      // we don't use this here, but still.
+      updatedPost.likes = updatedPost.likes + (updatedPost.isLiked ? -1 : 1);
+      updatedPost.isLiked = !updatedPost.isLiked;
+      const newPosts = [...prevPosts];
+      newPosts[updatedPostIndex] = updatedPost;
+      return newPosts;
+    }
+  );
+
+  if (!optimisticPosts || optimisticPosts.length === 0) {
+    return <p>There are no posts yet. Maybe start sharing some?</p>;
+  }
+
+  // if we use async, next allows using functions as client actions without 'use server' directive
+  async function updatePost(postId) {
+    updateOptimisticPosts(postId);
+    await togglePostLikeStatus(postId);
+  }
+
+  return (
+    <ul className="posts">
+      {optimisticPosts.map((post) => (
+        <li key={post.id}>
+          <Post post={post} action={updatePost} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+and then, within the Post component, we pass the action
+
+```js
+'use client';
+
+function Post({ post, action }) {
+  return (
+    <article className="post">
+      <div className="post-image">
+        <img src={post.image} alt={post.title} />
+      </div>
+      <div className="post-content">
+        <header>
+          <div>
+            <h2>{post.title}</h2>
+            <p>
+              Shared by {post.userFirstName} on{' '}
+              <time dateTime={post.createdAt}>
+                {formatDate(post.createdAt)}
+              </time>
+            </p>
+          </div>
+          <form
+            action={action.bind(null, post.id)}
+            className={post.isLiked ? 'liked' : ''}
+          >
+            <LikeButton />
+          </form>
+        </header>
+        <p>{post.content}</p>
+      </div>
+    </article>
+  );
+}
+```
+
+## Caching differences in Prod Vs Dev
+
+`npm run build` gives a `.next` folder. To run on prod mode, `npm start`.
+
+If we add a new post, the new entry won't be there as next does caching. Since pages are cached and pre rendered, it never gets re-generated again.
+We need to tell next to revalidatePath
+
+`revalidatePath('/', 'layout')`
+
+We should also do the same on createPost action.
+
+```js
+'use server';
+
+import { uploadImage } from '@/lib/cloudinary';
+import { storePost, updatePostLikeStatus } from '@/lib/posts';
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+
+export async function createPost(prevState, formData) {
+  ...
+
+  await storePost({
+    imageUrl,
+    title,
+    content,
+    userId: 1,
+  });
+  revalidatePath('/', 'layout');
+  redirect('/feed');
+}
+
+export async function togglePostLikeStatus(postId) {
+  await updatePostLikeStatus(postId, 2);
+  revalidatePath('/', 'layout');
+}
+```
+
+and then rebuild and start the server.

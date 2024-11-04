@@ -1,0 +1,577 @@
+# Next JS 14.0
+
+These are my notes for the udemy course [Next JS & React - The complete guide](https://www.udemy.com/course/nextjs-react-the-complete-guide/)
+
+- React is a pre req. Next builds on top of it.
+- React is just a library. Why do we need another library that builds on top of it?
+- Next js a fullstack react framework.
+- It simplifies the process of building fullstack apps with react.
+- React itself has added more features like improved SSR, Streaming responses, React Server components, Server actions etc.
+- To build a full stack app, we need Routing, form submission, data fetching, authentication and more.
+- Next builds up on react & simplify the process of building full stack web apps with react.
+
+## Key features
+
+- Just with JS, we build both front end and backend.
+- same project itself.
+- File system based Routing, not configuration or packages.
+- All contents (pages & components) visible on screen is rendered on server first and sends a finished page to client helping SEO.
+- Run `npx create-next-app@latest` to scaffold a next app.
+
+![Scaffolding](/images/01.png)
+
+- We use App router instead of Page router.
+- navigate to the folder root and run `npm run dev`
+
+## React vs Next
+
+- If we inspect the page source, we see the actual finished page being sent from the server.
+- The actual content visible on the page was sent from server. This is not the case for a standard client app.
+- On a standard react app, we render a bare minimum frame and then manipulates it in the browser.
+- So react app is just a client side app, whereas next js is both server side & client side in one project.
+- With next, we have a full stack app that blends client & server side.
+- in Nextjs, `page` is a reserved keyword. Similarly, there are a lot of reserved names.
+- Anything within the app, is for the routing. If we need to create components, do it inside a `components` folder which is a sibling to the app folder.
+
+## Add pages by routes
+
+```
+app/
+  awesome/
+    page.js // ==> loads localhost:3000/awesome if we export a standard react component
+```
+
+Keep in mind, it has to be a default export.
+
+## 2 approaches for building apps.
+
+- page router vs app router
+- both approaches help build full stack apps.
+- pages router is the older & stable.
+- app router is the newer one. ( NextJS 13+, server components & server actions , modern way, but buggy to an extend, but the future is here)
+
+## File based routing & Server components
+
+- `npm i` and the `npm run dev` to run the app locally.
+- app is the most important folder. we sets up different pages within it.
+- page.js is a reserved name.
+- It is a server component. They are rendered only on server, never on client.
+- The component function is executed on server only.
+- the console is executed in terminal. If you check dev tools, we won't see it.
+- to add more pages, within app folder, we add `about/` folder within which we add a `page.js`.
+
+## In-app navigation
+
+- For navigation between pages within the app, we use next js link. Regular links refreshes the page.
+
+- With nextjs, when we visit a page for the first time, it is rendered on server , gets a finished page and we are here.
+- But if we are on a page, and we click around, next allows to stay in a SPA & update UI with help of client side JS code.
+- Technically, the content of the next page will still be pre-rendered on the server but updated on client side with client side JS code.
+- We get the best of both worlds, a highly interactive client side app, a finished page being served if we are visiting the page for first time.
+
+```js
+import Link from 'next/link';
+
+<Link href="/about"> About </Link>;
+```
+
+With regular anchor element, the page refreshes and we loose the app state.
+
+## Pages & layout
+
+- page defines the content of the page
+- layout defines the shell around one or more pages.
+- it is the layout into which the page will be rendered.
+- every project needs atleast one root layout.js
+- and if we need we can add within the page folders too if we need different layouts for it.
+
+```js
+// layout.js
+// to import global styles, we can import it here.
+
+import './globals.css';
+
+// meta is a reserved name
+export const metadata = {
+  title: 'NextJS Course App',
+  description: 'Your first NextJS app!',
+};
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  );
+}
+```
+
+- `icon.png` is a special name. It will be used as a favicon if placed directly in the app folder.
+- we can add regular react components too and import them to page.js
+- we could add a components folder too.
+- Preferrably , store the components folder outside the app folder. App is used for routing related tasks only.
+- Use the `@` to point to root.
+
+## Reserved names
+
+```
+page.js      => Create a new page (e.g., app/about/page.js creates a <your-domain>/about page)
+layout.js    => Create a new layout that wraps sibling and nested pages
+not-found.js => Fallback page for "Not Found" errors (thrown by sibling or nested pages or layouts)
+error.js     => Fallback page for other errors (thrown by sibling pages or nested pages or layouts)
+loading.js   => Fallback page which is shown whilst sibling or nested pages (or layouts)
+                are fetching data
+route.js     => Allows you to create an API route (i.e., a page which does NOT return JSX code
+                but instead data, e.g., in the JSON format)
+```
+
+## Dynamic routes
+
+```
+app/ blog/[slug];
+page.js; // => loads localhost:3000/blog/post-1
+page.js; // => loads localhost:3000/blog
+```
+
+- Next js automatically passes a prop object. From which we can pull out the dynamic prop.
+
+```js
+export default function BlogPostPage({ params }) {
+  // params.id
+}
+```
+
+## Add local images
+
+```js
+import logoImg from '@/assets/logo.png';
+
+const MainHeader = () => {
+  return (
+    <header>
+      <Link href="/">
+        <img src={logoImg.src} alt="food" />
+        Next Level food.
+      </Link>
+    </header>
+  );
+};
+export default MainHeader;
+```
+
+## Styling options
+
+- we have global css where we can add multiple styles and import in layout.
+- tailwind css is another one
+- CSS Modules
+
+## Using scoped styles
+
+```js
+import classes from './main-header.module.css';
+
+const MainHeader = () => {
+  return (
+    <header className={classes.header}>
+      <Link className={classes.logo} href="/"></Link>
+    </header>
+  );
+};
+
+export default MainHeader;
+```
+
+## Optimize images
+
+- optimizes images by making it responsive.
+- optimizes the size based on viewport.
+- adds extra props like loading=lazy , srcset etc
+- serves in best file format (webp) which is more efficient than png.
+
+```js
+import Image from 'next/image';
+
+const MainHeader = () => {
+  return (
+    <header className={classes.header}>
+      <Link className={classes.logo} href="/">
+        <Image priority src={logoImg} alt="food" />
+        Next Level food.
+      </Link>
+    </header>
+  );
+};
+
+export default MainHeader;
+```
+
+## A note on client components with useState
+
+![Typical error](/images/02.png)
+
+- whenever we use a component with useState, it wont work in a server component
+- Since all components are server components by default, we need to mark it as client explicitly.
+-
+
+```js
+export default function ImageSlideshow() {
+
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  useEffect(() => {
+    ...
+  }, []);
+
+  return (
+    <div className={classes.slideshow}>
+      ...
+    </div>
+  );
+}
+```
+
+- even if we are on the SPA world once loaded & navigate around, all the components will still be rendered on server & in the end
+  a finished HTML code that is sent to client to be rendered.
+
+## React server components Vs Client Components
+
+| React Server Components                   | Client Components                                                     |
+| ----------------------------------------- | --------------------------------------------------------------------- |
+| Only rendered on server                   | Components are pre-rendered on server, but also potentially on client |
+| By default, all react components are RSCs | Opt in via "use client" directive                                     |
+| Less client side JS, great for SEO        | Logic resides on client side                                          |
+
+## Link highlight
+
+to extract path, we can use the hook "usePathname";
+
+![Typical error](/images/03.png)
+
+to tackle this, we need to add the use client directive.
+
+```js
+'use client';
+import { usePathname } from 'next/navigation';
+
+const MainHeader = () => {
+  const path = usePathname();
+  return (
+    <header className={classes.header}>
+      <nav className={classes.nav}>
+        <ul>
+          <li>
+            <Link
+              href="/meals"
+              className={path.startsWith('/meals') ? classes.active : undefined}
+            >
+              {' '}
+              Browse meals
+            </Link>
+          </li>
+          <li>
+            <Link
+              href="/community"
+              className={path === '/community' ? classes.active : undefined}
+            >
+              {' '}
+              Foodies Community
+            </Link>
+          </li>
+        </ul>
+      </nav>
+    </header>
+  );
+};
+
+export default MainHeader;
+```
+
+while we can do that, make sure, we add them far down the component tree as possible.
+So the majority still can be server components & is rendered on server.
+So for those reasons, easy to create a smaller focused new component
+
+Here, only this lean component is client side rendered. We dont need to mark the parent consuming one as client.
+Thereby, it still renders in server, and this one renders on client.
+
+```js
+'use client';
+import Link from 'next/link';
+import React from 'react';
+import { usePathname } from 'next/navigation';
+import classes from './main-header.module.css';
+
+const NavLink = ({ href, children }) => {
+  const path = usePathname();
+  return (
+    <Link
+      href={href}
+      className={path.startsWith(href) ? classes.active : undefined}
+    >
+      {' '}
+      {children}
+    </Link>
+  );
+};
+
+export default NavLink;
+```
+
+## Installing SQLite3 DB
+
+```js
+npm i better-sqlite3
+node initdb.js
+
+// lib/meals.js
+
+import sql from 'better-sqlite3'
+const db = sql("meals.db");
+
+export async function getMeals() {
+  await new Promise(resolve => setTimeout(resolve, 1000))
+  return db.prepare('SELECT * FROM meals').all()
+}
+```
+
+## Fetch data using Nextjs & fullstack capability
+
+When fetching data, our initial tendancy is to use the `useEffect` hook. But with next, since the component runs on server, we can directly reach out to the DB from here. Server components can be async too.
+
+```js
+// this can be a method to fetch the data from the DB
+import { getMeals } from '@/lib/meals';
+
+const MealsPage = async () => {
+  const meals = await getMeals();
+
+  return (
+    <>
+      ...
+      <main className={classes.main}>
+        <MealsGrid meals={meals} />
+      </main>
+    </>
+  );
+};
+
+export default MealsPage;
+```
+
+Next is aggressive w.r.t caching. So if we navigate to another page and come back, next shows us the cached page. We need to manually refresh to see the modified data.
+
+## Loading page
+
+![Loading](/images/04.png)
+
+- the reserved `loading.js` will become active if the page next to it or nested ones is loading data.
+- once loaded, if we navigate to another page and come back, since next caches the response, the loading is instant.
+
+```js
+import classes from './loading.module.css';
+
+export default function MealsLoading() {
+  return <p className={classes.loading}> Fetching meals...</p>;
+}
+```
+
+- the problem now is, loading occupies entire screen.
+
+## Suspense & Streamed response for granular loading
+
+- Instead of showing a totally different page, we can only show a part of the page
+- We can show some part of the page as static piece, and only load a certain section by showing a fallback message.
+- That way, user sees the page and knows that only some section is loading some data.
+- To do that, offload the lofic into a smaller component, and wrap them with Suspense.
+
+```js
+async function Meals() {
+  // outsource data fetching part into a component
+  // wrap this component with Suspense.
+  const meals = await getMeals();
+  return <MealsGrid meals={meals} />;
+}
+
+const MealsPage = () => {
+  return (
+    <>
+      ...
+      <main className={classes.main}>
+        {/* only this part is shown loading. */}
+        <Suspense
+          fallback={<p className={classes.loading}> Fetching meals...</p>}
+        >
+          <Meals />
+        </Suspense>
+      </main>
+    </>
+  );
+};
+
+export default MealsPage;
+```
+
+## Handle errors
+
+- `error.js` is a reserved file and must be a client component.
+- It should be able to catch errors that happen in client side too.
+
+```js
+// to simulate it,  in lib, throw an error..
+
+export async function getMeals() {
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  throw new Error('testing error...');
+}
+// in meals/error.js
+
+('use client');
+
+// will only handle errors that sits in the same folder
+// or nested page or layout
+// can add it to root level, or on a folder basis.
+
+const ErrorPage = ({ error }) => {
+  return (
+    <main className="error">
+      <h1> An error occured.. </h1>
+      <p> Failed to fetch.. </p>
+    </main>
+  );
+};
+
+export default ErrorPage;
+```
+
+## Not found states
+
+- we can have default 404 pages
+- add a `not-found.js` anywhere in `app` folder and will cover siblings and nested pages.
+
+## Dynamic routes and route params
+
+![Not found](/images/05.png)
+
+```js
+import React from 'react';
+
+const NotFound = () => {
+  return (
+    <main className="not-found">
+      <h1> Meal Not found</h1>
+      <p> Seems something inst right.</p>
+    </main>
+  );
+};
+
+export default NotFound;
+```
+
+### Load & render details with dynamic routes
+
+```js
+// lib/meals
+
+// the below syntax is SQLite db specific.
+// Below syntax helps against cross site scripting atatcks
+
+export function getMeal(slug) {
+  return db.prepare('SELECT * from meals WHERE slug = ?').get(slug);
+}
+
+// MealDetailPage
+
+// all pages gets a params prop passes into it.
+
+import { getMeal } from '@/lib/meals';
+import { notFound } from 'next/navigation';
+
+// receives params prop.
+const MealDetailsPage = ({ params }) => {
+  const meal = getMeal(params.mealSlug);
+  if (!meal) {
+    // shows the closest not-found page
+    notFound();
+  }
+
+  // instruction is a string text here as content is a string HTML
+  meal.instructions = meal.instructions.replace(/\n/g, '<br/>');
+  return (
+    <div>
+      <header className={classes.header}>
+        <div className={classes.image}>
+          <Image fill src={meal.image} alt={meal.title} />
+        </div>
+        ...
+      </header>
+      <main>
+        <p
+          className={classes.instructions}
+          dangerouslySetInnerHTML={{
+            __html: meal.instructions,
+          }}
+        ></p>
+      </main>
+    </div>
+  );
+};
+
+export default MealDetailsPage;
+```
+
+## Image picker logic
+
+```js
+'use client';
+
+import { useRef, useState } from 'react';
+import classes from './image-picker.module.css';
+import Image from 'next/image';
+
+export default function ImagePicker({ label, name }) {
+  const [picked, setPicked] = useState();
+  const imageInput = useRef();
+
+  function handleClick() {
+    imageInput.current.click();
+  }
+
+  function handleImageChange(event) {
+    const file = event.target.files[0];
+    if (!file) {
+      setPicked(null);
+      return;
+    }
+    // data url for preview
+    const fileReader = new FileReader();
+    fileReader.onload = () => {
+      setPicked(fileReader.result);
+    };
+    fileReader.readAsDataURL(file);
+  }
+  return (
+    <div className={classes.picker}>
+      <label htmlFor={name}> {label} </label>
+      <div className={classes.controls}>
+        <div className={classes.preview}>
+          {!picked && <p> No image picked yet</p>}
+          {picked && <Image src={picked} alt="Image selected by user" fill />}
+        </div>
+        <input
+          className={classes.input}
+          type="file"
+          id={name}
+          accept="image/png, image/jpeg"
+          name={name}
+          ref={imageInput}
+          required
+          onChange={handleImageChange}
+        />
+        <button onClick={handleClick} className={classes.button} type="button">
+          {' '}
+          Pick an image{' '}
+        </button>
+      </div>
+    </div>
+  );
+}
+```

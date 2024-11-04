@@ -1,0 +1,162 @@
+# Caching
+
+## Understand and configure caching
+
+- Request memoization: Next stores data requests with same configuration to avoid duplicate data fecthes. Cache only persists during request duration
+- Data cache: Stores & reuses fecthed data until it is revalidated. This is to avoid unnecessary requests to data source & speeds up application. Data cache persists until it is revalidated.
+- Full route cache: Stores the rendered HTML & RSC at build time. Avoids unnecessary HTML render cycles & data fetches.
+- Router cache: managed on client side. Next stores the RSC payload in memory in browser. Ensures fast page transitions since no server request is needed.
+
+In code, we have 2 different request from 2 different areas.
+
+```js
+// layout.js
+const response = await fetch('http://localhost:8080/messages', {
+  headers: {
+    'X-ID': 'layout',
+  },
+});
+
+// page.js
+const response = await fetch('http://localhost:8080/messages', {
+  headers: {
+    'X-ID': 'page',
+  },
+});
+```
+
+We have same data source, but we got 2 logs on server, as the configurations are different.
+
+If we get rid of the configuration, then only 1 new request will be added.
+If we reload, no new requests will be sent. That is request memoization in action.
+
+Even if we reload the page, or navigate back and forth, no new logs will be seen. That's because of the data cache. We could call `revalidatePath()` to throw away the cache, or we can configure fetch function.
+
+As a config object to fetch, pass `{ cache: 'no-store'}`. When this request hits server, it says, this specific request should not be cached.
+
+```js
+const response = await fetch('http://localhost:8080/messages', {
+  cache: 'no-store',
+});
+```
+
+We can also use `{ next: { revalidate: 5 }}`. So reuse for 5 seconds and then send new data. Within 5 seconds, if there are requests sent, it will serve the cached response.
+
+```js
+const response = await fetch('http://localhost:8080/messages', {
+  next: {
+    revalidate: 5,
+  },
+});
+```
+
+## Controlling data caching
+
+To set on a file wide basis, give the exact name as `revalidate`
+
+```js
+// property name has to be exact
+// export const revalidate = 5;
+export const dynamic = 'force-dynamic'; // same as setting { cache: 'no-store'}
+
+export default async function MessagesPage() {
+  const response = await fetch('http://localhost:8080/messages');
+  ...
+
+  return <Messages messages={messages} />;
+}
+```
+
+With dynamic set to `force-dynamic`, always refetch all the data needed anywhere in the file.
+
+Another option to make sure data isn't cached which is recommended over the other two above is:
+
+```js
+import { unstable_noStore } from 'next/cache';
+
+export default async function MessagesPage() {
+  unstable_noStore();
+  ...
+
+  return <Messages messages={messages} />;
+}
+```
+
+with this, if we have multiple components in the same page, and needs caching in some, but doesnt need in some, we can use this.
+
+## Full route cache:
+
+It's created and initialized at build time. If we build the app, next pre renders all the pages unless they are dynamic pages.
+When we start the app, its the pre rendered page that is getting served.
+
+If we set atleast one of the setting, either dynamic or revalidate, then the page auto disables full route cache.
+
+We can also use revalidatePath.
+
+- revalidatePath() - we revalidate some piece of cache on demand when we tell next js to do it.
+- revalidateTag('msg') - we can assign tags to requests.
+
+```js
+const response = await fetch('http://localhost:8080/messages', {
+  next: {
+    tags: ['msg'],
+  },
+});
+```
+
+When revalidate the tags, any request that use the same tags will be revalidated.
+
+## Set request memoization for custom data source
+
+```js
+// custom data source
+import { getMessages } from '@/lib/messages';
+
+export default async function MessagesPage() {
+  const messages = getMessages();
+
+  if (!messages || messages.length === 0) {
+    return <p>No messages found</p>;
+  }
+
+  return <Messages messages={messages} />;
+}
+```
+
+to add request de-duplication for our own data fecthing code,
+
+```js
+import { cache } from 'react';
+
+export const getMessages = cache(function getMessages() {
+  console.log('Fetching messages from db');
+  return db.prepare('SELECT * FROM messages').all();
+});
+```
+
+Then, it is just one request per page reload, even though there are multiple places where we use the getMessages function.
+The request is cached. React cahces the returned data. Then that response is reused everywhere.
+
+## Data cache functionality for our own data source
+
+```js
+import { unstable_cache } from 'next/cache';
+
+export const getMessages = unstable_cache(
+  cache(
+    function getMessages() {
+      console.log('Fetching messages from db');
+      return db.prepare('SELECT * FROM messages').all();
+    },
+    ['messages'], // optional
+    {
+      revalidate: 5,
+      tags: ['msgs'],
+    }
+  )
+);
+
+// and in component
+```
+
+to tell that the data cached is changed, we can use revalidatePath, or revalidateTag.
